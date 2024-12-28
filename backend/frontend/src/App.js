@@ -13,7 +13,7 @@
 // root.render(<App />);
 
 // App.js
-import React from 'react';
+import React, { StrictMode } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers';
@@ -24,6 +24,7 @@ import Consumacao from './pages/Consumacao';
 import Layout from './components/Layout';
 import GestaoComandas from './pages/GestaoComandas';
 import Dashboard from './pages/Dashboard';
+import DebugConsumacao from './pages/Debug_Consumacao';
 
 const theme = createTheme({
   palette: {
@@ -59,4 +60,8 @@ export default App;
 
 const appDiv = document.getElementById("app");
 const root = createRoot(appDiv);
-root.render(<App />);
+root.render(
+      <StrictMode>
+        <App />
+      </StrictMode>
+    );

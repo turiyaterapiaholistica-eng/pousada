@@ -6,8 +6,12 @@ from datetime import datetime, timedelta
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
-from .models import Categoria, ItemCardapio, Consumacao, ItemConsumacao
-from .serializers import CategoriaSerializer, ItemCardapioSerializer, ConsumacaoSerializer
+from .models import Categoria, ItemCardapio, Consumacao, ItemConsumacao, Pagamento
+from .serializers import CategoriaSerializer, ItemCardapioSerializer, ConsumacaoSerializer, PagamentoSerializer, ConsumacaoDetailSerializer
+from rest_framework.exceptions import ValidationError
+from django.db import transaction
+from decimal import Decimal
+
 
 def index(request, *args, **kwargs):
     return render(request, 'frontend/index.html')
@@ -41,14 +45,23 @@ class ItemCardapioViewSet(viewsets.ModelViewSet):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 class ConsumacaoViewSet(viewsets.ModelViewSet):
-    queryset = Consumacao.objects.all()
+    queryset = Consumacao.objects.prefetch_related(
+        'itemconsumacao_set',
+        'itemconsumacao_set__item',
+        'pagamentos'
+    ).all()
     serializer_class = ConsumacaoSerializer
     
     def get_queryset(self):
-        queryset = Consumacao.objects.all()
+        queryset = super().get_queryset()
         quarto = self.request.query_params.get('quarto', None)
+        status = self.request.query_params.get('status', None)
+        
         if quarto:
             queryset = queryset.filter(quarto=quarto)
+        if status:
+            queryset = queryset.filter(status=status)
+            
         return queryset
 
     @action(detail=False, methods=['get'])
@@ -77,7 +90,6 @@ class ConsumacaoViewSet(viewsets.ModelViewSet):
             total=Sum('item_total')
         )['total'] or 0
 
-        
         itens_mais_vendidos = ItemConsumacao.objects.filter(
             consumacao__data_hora__range=(start_date, end_date)
         ).values(
@@ -148,3 +160,64 @@ class ConsumacaoViewSet(viewsets.ModelViewSet):
                 {'error': 'Item não encontrado'}, 
                 status=status.HTTP_404_NOT_FOUND
             )
+        
+    def get_serializer_class(self):
+        if self.action in ['retrieve', 'registrar_pagamento']:
+            return ConsumacaoDetailSerializer
+        return ConsumacaoSerializer
+
+    @action(detail=True, methods=['post'])
+    def registrar_pagamento(self, request, pk=None):
+        consumacao = self.get_object()
+        
+        valor = request.data.get('valor')
+        if not valor:
+            raise ValidationError({'valor': 'Este campo é obrigatório.'})
+            
+        try:
+            valor = Decimal(str(valor))
+        except decimal.InvalidOperation:
+            raise ValidationError({'valor': 'Valor inválido.'})
+            
+        if valor <= 0:
+            raise ValidationError({'valor': 'O valor deve ser maior que zero.'})
+            
+        saldo_atual = consumacao.saldo()
+        if valor > saldo_atual:
+            raise ValidationError({
+                'valor': f'O valor excede o saldo pendente de {saldo_atual}.'
+            })
+            
+        with transaction.atomic():
+            pagamento = Pagamento.objects.create(
+                consumacao=consumacao,
+                valor=valor,
+                forma_pagamento=request.data.get('forma_pagamento', 'dinheiro'),
+                observacao=request.data.get('observacao', '')
+            )
+            
+            # Update comanda status if fully paid
+            novo_saldo = consumacao.saldo()
+            if novo_saldo <= 0:
+                consumacao.status = 'pago'
+                consumacao.save()
+            
+            serializer = ConsumacaoDetailSerializer(consumacao)
+            return Response(serializer.data)
+            
+    @action(detail=True, methods=['get'])
+    def pagamentos(self, request, pk=None):
+        consumacao = self.get_object()
+        pagamentos = consumacao.pagamentos.all()
+        serializer = PagamentoSerializer(pagamentos, many=True)
+        return Response(serializer.data)
+        
+
+class PagamentoViewSet(viewsets.ModelViewSet):
+    queryset = Pagamento.objects.all()
+    serializer_class = PagamentoSerializer
+
+    def get_queryset(self):
+        return Pagamento.objects.filter(
+            consumacao_id=self.kwargs.get('consumacao_pk')
+        )

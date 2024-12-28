@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import Grid from '@mui/material/Grid2';
 import {
   Box, Card, CardMedia, CardContent, CardActions, Typography, Button, 
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, IconButton, 
-  Drawer, List, ListItem, ListItemText, Divider, Badge, Snackbar, Alert
+  Drawer, List, ListItem, ListItemText, Divider, Badge, Snackbar, Alert,
+  FormControlLabel, Checkbox, MenuItem
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
-import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
-import DeleteIcon from '@mui/icons-material/Delete';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import DeleteIcon from '@mui/icons-material/Delete';
 import CategoryTabs from '../components/CategoryTabs';
 import api from '../services/api';
 
@@ -18,7 +18,7 @@ export default function Consumacao() {
   const [categorias, setCategorias] = useState([]);
   const [itens, setItens] = useState([]);
   const [selectedCategories, setSelectedCategories] = useState({
-    mainCategoryId: null,
+    mainCategoryId: 5, // ID for "Bebidas"
     subCategoryId: null
   });
   const [carrinho, setCarrinho] = useState([]);
@@ -28,48 +28,247 @@ export default function Consumacao() {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [quantidades, setQuantidades] = useState({});
   const [drawerOpen, setDrawerOpen] = useState(true);
+  const [showOnlyAvailable, setShowOnlyAvailable] = useState(true);
+  const [isBusinessWorker, setIsBusinessWorker] = useState(false);
   const drawerWidth = 400;
+
+  // Busca informações sobre as comandas
+  const [comandasAbertas, setComandasAbertas] = useState([]);
+  const [selectedComanda, setSelectedComanda] = useState('');
+
+  const [isLoading, setIsLoading] = useState(true);
+
 
   useEffect(() => {
     const fetchData = async () => {
+      setIsLoading(true);
       try {
-        const [categoriasRes, itensRes] = await Promise.all([
-          api.get('/categorias/'),
-          api.get('/itens/'),
-        ]);
-        setCategorias(categoriasRes.data);
-        setItens(itensRes.data);
-        
-        const initQuantidades = {};
-        itensRes.data.forEach(item => {
-          initQuantidades[item.id] = 1;
-        });
-        setQuantidades(initQuantidades);
+        // Fetch categorias
+        let categoriasData = [];
+        try {
+          const categoriasRes = await api.get('/categorias/');
+          console.log('Raw categorias response:', categoriasRes);
+          // Check if we have data and it's an array
+          if (Array.isArray(categoriasRes)) {
+            categoriasData = categoriasRes;  // Remove .data
+            setCategorias(categoriasData);
+            
+            // Find and set the first main category
+            const firstMainCategory = categoriasData.find(cat => !cat.categoria_pai);
+            if (firstMainCategory) {
+              console.log('Setting first main category:', firstMainCategory);
+              setSelectedCategories({
+                mainCategoryId: firstMainCategory.id,
+                subCategoryId: null
+              });
+            }
+          } else {
+            console.error('Unexpected categorias response format:', categoriasRes);
+          }
+        } catch (error) {
+          console.error('Error fetching categorias:', error);
+          showSnackbar('Erro ao carregar categorias', 'error');
+        }
+  
+        // Fetch itens
+        try {
+          const itensRes = await api.get('/itens/');
+          console.log('Raw items response:', itensRes);
+          // Check if we have data and it's an array
+          if (Array.isArray(itensRes)) {
+            const itensData = itensRes;  // Remove .data
+            console.log('Setting items:', itensData.length);
+            setItens(itensData);
+            
+            // Initialize quantities for each item
+            const initQuantidades = {};
+            itensData.forEach(item => {
+              initQuantidades[item.id] = 1;
+            });
+            setQuantidades(initQuantidades);
+          } else {
+            console.error('Unexpected itens response format:', itensRes);
+          }
+        } catch (error) {
+          console.error('Error fetching itens:', error);
+          showSnackbar('Erro ao carregar itens', 'error');
+        }
+  
+        // Fetch comandas
+        try {
+          const comandasRes = await api.get('/consumacoes/?status=aberto');
+          console.log('Raw comandas response:', comandasRes);
+          if (Array.isArray(comandasRes)) {
+            setComandasAbertas(comandasRes);  // Remove .data
+            
+            // If there's a selected comanda, update worker status
+            if (selectedComanda) {
+              const selectedComandaData = comandasRes.find(
+                c => c.id === selectedComanda
+              );
+              if (selectedComandaData) {
+                setIsBusinessWorker(selectedComandaData.isBusinessWorker);
+              }
+            }
+          } else {
+            console.error('Unexpected comandas response format:', comandasRes);
+          }
+        } catch (error) {
+          console.error('Error fetching comandas:', error);
+          showSnackbar('Erro ao carregar comandas', 'error');
+        }
+  
       } catch (error) {
+        console.error('Error in fetchData:', error);
         showSnackbar('Erro ao carregar dados', 'error');
+      } finally {
+        setIsLoading(false);
       }
     };
+  
     fetchData();
-  }, []);
+  }, [selectedComanda]);
+
+  // Function to get the effective price based on worker status
+  const getEffectivePrice = (item) => {
+    if (!item) return '-';
+    
+    // If it's a business worker and there's a cost price
+    if (isBusinessWorker && item.preco_custo != null) {
+      return item.preco_custo;
+    }
+    
+    // If regular price exists, use it
+    if (item.preco != null) {
+      return item.preco;
+    }
+    
+    // If no valid price exists
+    return '-';
+  };
+
+  const handleComandaChange = (e) => {
+    const comandaId = e.target.value;
+    setSelectedComanda(comandaId);
+    
+    if (comandaId && Array.isArray(comandasAbertas)) {
+      const comanda = comandasAbertas.find(c => c.id === comandaId);
+      if (comanda) {
+        setQuarto(comanda.quarto);
+        setIsBusinessWorker(comanda.isBusinessWorker);
+        
+        // Update cart prices
+        setCarrinho(prevCarrinho => prevCarrinho.map(item => {
+          const newPreco = comanda.isBusinessWorker && item.preco_custo != null 
+            ? item.preco_custo 
+            : item.preco;
+          
+          return {
+            ...item,
+            precoEfetivo: newPreco ?? '-'
+          };
+        }));
+      }
+    } else {
+      setQuarto('');
+    }
+  };
+
+  const adicionarAoCarrinho = (item) => {
+    const quantidade = quantidades[item.id];
+    const precoEfetivo = getEffectivePrice(item);
+    
+    // Don't add items without a valid price
+    if (precoEfetivo === '-') {
+      showSnackbar('Item sem preço definido', 'error');
+      return;
+    }
+  
+    const itemExistente = carrinho.find(i => i.id === item.id);
+  
+    if (itemExistente) {
+      setCarrinho(carrinho.map(i => 
+        i.id === item.id 
+          ? { ...i, quantidade: i.quantidade + quantidade }
+          : i
+      ));
+    } else {
+      setCarrinho([...carrinho, { 
+        ...item, 
+        quantidade,
+        precoEfetivo
+      }]);
+    }
+  
+    setQuantidades(prev => ({
+      ...prev,
+      [item.id]: 1
+    }));
+  
+    showSnackbar(`${quantidade}x ${item.nome} adicionado ao carrinho`);
+  };
 
   const handleCategoryChange = (categories) => {
     setSelectedCategories(categories);
   };
 
   const getFilteredItems = () => {
+    console.log('getFilteredItems called with:', {
+      totalItems: itens.length,
+      selectedCategories,
+      showOnlyAvailable
+    });
+      
     return itens.filter(item => {
-      const categoria = categorias.find(cat => cat.id === item.categoria);
+      console.log('Filtering item:', item);
       
-      if (!selectedCategories.mainCategoryId) return true;
-      
+      // First filter by availability if checkbox is checked
+      if (showOnlyAvailable && !item.disponivel) {
+        console.log('Item filtered out due to availability:', item.nome);
+        return false;
+      }
+  
+      // If no main category is selected, show all items
+      if (!selectedCategories.mainCategoryId) {
+        console.log('No main category selected, showing all items');
+        return true;
+      }
+  
+      // If a subcategory is selected, show only items from that subcategory
       if (selectedCategories.subCategoryId) {
+        console.log('Filtering by subcategory:', selectedCategories.subCategoryId);
         return item.categoria === selectedCategories.subCategoryId;
       }
-      
-      return categoria?.categoria_pai === selectedCategories.mainCategoryId || 
-             item.categoria === selectedCategories.mainCategoryId;
-    }).filter(item => item.disponivel);
+  
+      // Show items that either belong to main category or its subcategories
+      const itemCategory = categorias.find(cat => cat.id === item.categoria);
+      const result = (
+        item.categoria === selectedCategories.mainCategoryId || 
+        itemCategory?.categoria_pai === selectedCategories.mainCategoryId
+      );
+      console.log('Item category check:', {
+        item: item.nome,
+        result,
+        itemCategory: itemCategory?.nome
+      });
+      return result;
+    });
   };
+
+  useEffect(() => {
+    const filtered = getFilteredItems();
+    console.log('Selected Categories:', selectedCategories);
+    console.log('Filtered Items:', filtered);
+    console.log('Show Only Available:', showOnlyAvailable);
+    filtered.forEach(item => {
+      console.log('Item:', item.nome);
+      console.log('  Regular Price:', item.preco);
+      console.log('  Cost Price:', item.preco_custo);
+      console.log('  Effective Price:', getEffectivePrice(item));
+      console.log('  Is Available:', item.disponivel);
+    });
+  }, [selectedCategories, itens, showOnlyAvailable, isBusinessWorker]);
+  
 
   const handleQuantidadeChange = (itemId, delta) => {
     setQuantidades(prev => ({
@@ -78,27 +277,35 @@ export default function Consumacao() {
     }));
   };
 
-  const adicionarAoCarrinho = (item) => {
-    const quantidade = quantidades[item.id];
-    const itemExistente = carrinho.find(i => i.id === item.id);
-
-    if (itemExistente) {
-      setCarrinho(carrinho.map(i => 
-        i.id === item.id 
-          ? { ...i, quantidade: i.quantidade + quantidade }
-          : i
-      ));
-    } else {
-      setCarrinho([...carrinho, { ...item, quantidade }]);
-    }
-
-    setQuantidades(prev => ({
-      ...prev,
-      [item.id]: 1
-    }));
-
-    showSnackbar(`${quantidade}x ${item.nome} adicionado ao carrinho`);
-  };
+  // const adicionarAoCarrinho = (item) => {
+  //   const quantidade = quantidades[item.id];
+  //   const precoAtual = isBusinessWorker && item.preco_funcionario 
+  //     ? item.preco_funcionario 
+  //     : item.preco;
+  
+  //   const itemExistente = carrinho.find(i => i.id === item.id);
+  
+  //   if (itemExistente) {
+  //     setCarrinho(carrinho.map(i => 
+  //       i.id === item.id 
+  //         ? { ...i, quantidade: i.quantidade + quantidade }
+  //         : i
+  //     ));
+  //   } else {
+  //     setCarrinho([...carrinho, { 
+  //       ...item, 
+  //       quantidade,
+  //       precoEfetivo: precoAtual // Store the effective price when adding to cart
+  //     }]);
+  //   }
+  
+  //   setQuantidades(prev => ({
+  //     ...prev,
+  //     [item.id]: 1
+  //   }));
+  
+  //   showSnackbar(`${quantidade}x ${item.nome} adicionado ao carrinho`);
+  // };
 
   const removerDoCarrinho = (itemId) => {
     setCarrinho(carrinho.filter(item => item.id !== itemId));
@@ -118,17 +325,18 @@ export default function Consumacao() {
     try {
       const comandasRes = await api.get(`/consumacoes/?quarto=${quarto}`);
       let consumacaoId;
-
+  
       if (comandasRes.data.length > 0 && comandasRes.data[0].status === 'aberto') {
         consumacaoId = comandasRes.data[0].id;
       } else {
         const novaComandaRes = await api.post('/consumacoes/', {
           quarto,
-          status: 'aberto'
+          status: 'aberto',
+          isBusinessWorker // Add this line
         });
         consumacaoId = novaComandaRes.data.id;
       }
-
+  
       for (const item of carrinho) {
         await api.post(`/consumacoes/${consumacaoId}/adicionar_item/`, {
           item_id: item.id,
@@ -136,7 +344,7 @@ export default function Consumacao() {
           observacao
         });
       }
-
+  
       setCarrinho([]);
       setCheckoutOpen(false);
       showSnackbar('Pedido realizado com sucesso!');
@@ -156,10 +364,66 @@ export default function Consumacao() {
     }).format(Number(value) || 0);
   };
 
-  const totalCarrinho = carrinho.reduce(
-    (total, item) => total + (item.preco * item.quantidade), 
-    0
+  const totalCarrinho = carrinho.reduce((total, item) => {
+    const preco = item.precoEfetivo;
+    if (preco === '-' || preco == null) return total;
+    return total + (preco * item.quantidade);
+  }, 0);
+
+  const renderPreco = (item) => {
+    const precoEfetivo = getEffectivePrice(item);
+    
+    return (
+      <Typography variant="h6" color="primary" sx={{ mt: 2 }}>
+        {precoEfetivo === '-' ? (
+          <span>-</span>
+        ) : (
+          <>
+            {formatMoney(precoEfetivo)}
+            {isBusinessWorker && item.preco_custo != null && (
+              <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                (Preço funcionário)
+              </Typography>
+            )}
+          </>
+        )}
+      </Typography>
+    );
+  };
+
+
+  const renderCartItem = (item) => (
+    <ListItemText
+      primary={item.nome}
+      secondary={
+        <Box>
+          <Typography variant="body2">
+            {formatMoney(item.precoEfetivo)} x {item.quantidade}
+          </Typography>
+          <Typography variant="subtitle2" color="primary">
+            {formatMoney(item.precoEfetivo * item.quantidade)}
+          </Typography>
+        </Box>
+      }
+    />
   );
+
+
+  console.log('Rendering items...');
+  const filteredItems = getFilteredItems();
+  console.log('Number of filtered items:', filteredItems.length);
+
+  if (filteredItems.length === 0) {
+    return (
+      <Typography>
+        No items found. Debug info:
+        Main Category: {selectedCategories.mainCategoryId},
+        Sub Category: {selectedCategories.subCategoryId},
+        Total Items: {itens.length},
+        Show Only Available: {showOnlyAvailable.toString()}
+      </Typography>
+    );
+  }
 
   return (
     <Box sx={{ display: 'flex' }}>
@@ -170,14 +434,67 @@ export default function Consumacao() {
           ml: 2
         }}
       >
+        <Box 
+          sx={{ 
+            mb: 2,
+            display: 'flex',
+            justifyContent: 'space-between' 
+          }}
+        >
+          <Box>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={isBusinessWorker}
+                  onChange={(e) => {
+                    setIsBusinessWorker(e.target.checked);
+                    // Clear selected comanda when changing worker status manually
+                    if (!e.target.checked) {
+                      setSelectedComanda('');
+                    }
+                  }}
+                />
+              }
+              label="Funcionário"
+              sx={{ ml: 2 }}
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={showOnlyAvailable}
+                  onChange={(e) => setShowOnlyAvailable(e.target.checked)}
+                />
+              }
+              label="Somente itens disponíveis"
+            />
+          </Box>
+          <TextField
+            select
+            label="Comandas Abertas"
+            value={selectedComanda}
+            onChange={handleComandaChange}
+            sx={{ minWidth: 200 }}
+          >
+            <MenuItem value="">
+              <em>Nova comanda</em>
+            </MenuItem>
+            {Array.isArray(comandasAbertas) && comandasAbertas.map((comanda) => (
+              <MenuItem key={comanda?.id || 'default'} value={comanda?.id || ''}>
+                Quarto {comanda?.quarto || ''} - {formatMoney(comanda?.total || 0)}
+              </MenuItem>
+            ))}
+          </TextField>
+        </Box>
+        
         <CategoryTabs 
           categorias={categorias} 
           onCategoryChange={handleCategoryChange}
+          selectedCategories={selectedCategories}
         />
         
         <Grid container spacing={3} sx={{ mt: 2 }}>
           {getFilteredItems().map(item => (
-            <Grid item xs={12} sm={6} md={4} key={item.id}>
+            <Grid xs={12} sm={6} md={4} key={item.id}>
               <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                 <CardMedia
                   component="div"
@@ -191,8 +508,8 @@ export default function Consumacao() {
                 >
                   {item.imagem ? (
                     <img
-                    src={item.imagem && !item.imagem.startsWith('http') ? `/media/${item.imagem}` : item.imagem}
-                    alt={item.nome}
+                      src={item.imagem && !item.imagem.startsWith('http') ? `/media/${item.imagem}` : item.imagem}
+                      alt={item.nome}
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     />
                   ) : (
@@ -201,16 +518,14 @@ export default function Consumacao() {
                     </Typography>
                   )}
                 </CardMedia>
-                <CardContent sx={{ flexGrow: 1 }}>
+                  <CardContent sx={{ flexGrow: 1 }}>
                   <Typography gutterBottom variant="h6" component="h2">
                     {item.nome}
                   </Typography>
                   <Typography color="text.secondary">
                     {item.descricao}
                   </Typography>
-                  <Typography variant="h6" color="primary" sx={{ mt: 2 }}>
-                    {formatMoney(item.preco)}
-                  </Typography>
+                  {renderPreco(item)}
                 </CardContent>
                 <CardActions sx={{ p: 2, pt: 0 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
@@ -240,6 +555,7 @@ export default function Consumacao() {
             </Grid>
           ))}
         </Grid>
+
       </Box>
 
       <Drawer
@@ -309,10 +625,10 @@ export default function Consumacao() {
                         secondary={
                           <Box>
                             <Typography variant="body2">
-                              {formatMoney(item.preco)} x {item.quantidade}
+                              {formatMoney(isBusinessWorker && item.preco_funcionario ? item.preco_funcionario : item.preco)} x {item.quantidade}
                             </Typography>
                             <Typography variant="subtitle2" color="primary">
-                              {formatMoney(item.preco * item.quantidade)}
+                              {formatMoney((isBusinessWorker && item.preco_funcionario ? item.preco_funcionario : item.preco) * item.quantidade)}
                             </Typography>
                           </Box>
                         }

@@ -29,7 +29,9 @@ class ItemCardapio(models.Model):
     descricao = models.TextField()
     ativo = models.BooleanField(default=True)
     preco = models.DecimalField(max_digits=10, decimal_places=2)
-    categoria = models.ForeignKey(Categoria, on_delete=models.SET_NULL, null=True)  # Changed from PROTECT to SET_NULL
+    # Add worker price field
+    preco_custo = models.DecimalField(max_digits=10, decimal_places=2, null=True)
+    categoria = models.ForeignKey(Categoria, on_delete=models.SET_NULL, null=True)
     disponivel = models.BooleanField(default=True)
     imagem = models.ImageField(upload_to='', null=True, blank=True)
     
@@ -39,7 +41,7 @@ class ItemCardapio(models.Model):
     class Meta:
         verbose_name = 'Item do Cardápio'
         verbose_name_plural = 'Itens do Cardápio'
-        ordering = ['categoria__nome', 'nome']
+        ordering = ['categoria__nome', 'nome']    
 
 class Consumacao(models.Model):
     quarto = models.CharField(max_length=50)
@@ -50,15 +52,61 @@ class Consumacao(models.Model):
         ('fechado', 'Fechado'),
         ('pago', 'Pago')
     ], default='aberto')
+    # Add isBusinessWorker field
+    isBusinessWorker = models.BooleanField(default=False)
     
     def total(self):
-        return sum(item.quantidade * item.item.preco for item in self.itemconsumacao_set.all())
+        total = 0
+        for item_consumacao in self.itemconsumacao_set.all():
+            if self.isBusinessWorker and item_consumacao.item.preco_funcionario is not None:
+                preco = item_consumacao.item.preco_funcionario
+            else:
+                preco = item_consumacao.item.preco
+            total += item_consumacao.quantidade * preco
+        return total
+    
+    def total_pago(self):
+        return self.pagamentos.aggregate(
+            total=models.Sum('valor')
+        )['total'] or 0
+    
+    def saldo(self):
+        return self.total() - self.total_pago()
 
 class ItemConsumacao(models.Model):
     consumacao = models.ForeignKey(Consumacao, on_delete=models.CASCADE)
     item = models.ForeignKey(ItemCardapio, on_delete=models.PROTECT)
     quantidade = models.IntegerField(default=1)
     observacao = models.TextField(blank=True)
+
+class Pagamento(models.Model):
+    FORMA_PAGAMENTO_CHOICES = [
+        ('dinheiro', 'Dinheiro'),
+        ('cartao_credito', 'Cartão de Crédito'),
+        ('cartao_debito', 'Cartão de Débito'),
+        ('pix', 'PIX'),
+        ('outros', 'Outros')
+    ]
+    
+    consumacao = models.ForeignKey(
+        'Consumacao', 
+        on_delete=models.CASCADE,
+        related_name='pagamentos'
+    )
+    valor = models.DecimalField(max_digits=10, decimal_places=2)
+    data = models.DateTimeField(auto_now_add=True)
+    forma_pagamento = models.CharField(
+        max_length=50,
+        choices=FORMA_PAGAMENTO_CHOICES,
+        default='dinheiro'
+    )
+    observacao = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-data']
+        
+    def __str__(self):
+        return f"Pagamento {self.forma_pagamento} - R${self.valor}"
 
 class ConsumacaoViewSet(viewsets.ModelViewSet):
     queryset = Consumacao.objects.all()

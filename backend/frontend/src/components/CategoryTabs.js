@@ -1,33 +1,35 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Tabs, Tab, Chip } from '@mui/material';
 
-const CategoryTabs = ({ categorias, onCategoryChange }) => {
-  const [mainCategory, setMainCategory] = useState(0);
-  const [subCategory, setSubCategory] = useState(null);
+const CategoryTabs = ({ categorias, onCategoryChange, selectedCategories }) => {
+  const mainCategories = categorias.filter(cat => !cat.categoria_pai);
+  
+  // Find the index of the selected main category
+  const selectedMainCategoryIndex = mainCategories.findIndex(
+    cat => cat.id === selectedCategories.mainCategoryId
+  );
   
   const handleMainCategoryChange = (event, newValue) => {
-    setMainCategory(newValue);
-    setSubCategory(null);
     onCategoryChange({
-      mainCategoryId: categorias[newValue]?.id,
+      mainCategoryId: mainCategories[newValue]?.id,
       subCategoryId: null
     });
   };
 
   const handleSubCategoryChange = (subCategoryId) => {
-    setSubCategory(subCategoryId);
     onCategoryChange({
-      mainCategoryId: categorias[mainCategory]?.id,
+      mainCategoryId: selectedCategories.mainCategoryId,
       subCategoryId
     });
   };
 
-  const mainCategories = categorias.filter(cat => !cat.categoria_pai);
+  // Get current main category object
+  const currentMainCategory = mainCategories[selectedMainCategoryIndex];
 
   return (
     <Box>
       <Tabs
-        value={mainCategory}
+        value={selectedMainCategoryIndex !== -1 ? selectedMainCategoryIndex : 0}
         onChange={handleMainCategoryChange}
         variant="scrollable"
         scrollButtons="auto"
@@ -38,21 +40,21 @@ const CategoryTabs = ({ categorias, onCategoryChange }) => {
         ))}
       </Tabs>
       
-      {mainCategories[mainCategory]?.subcategorias?.length > 0 && (
+      {currentMainCategory?.subcategorias?.length > 0 && (
         <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
           <Chip
             label="Todos"
             onClick={() => handleSubCategoryChange(null)}
-            color={subCategory === null ? "primary" : "default"}
-            variant={subCategory === null ? "filled" : "outlined"}
+            color={selectedCategories.subCategoryId === null ? "primary" : "default"}
+            variant={selectedCategories.subCategoryId === null ? "filled" : "outlined"}
           />
-          {mainCategories[mainCategory].subcategorias.map((sub) => (
+          {currentMainCategory.subcategorias.map((sub) => (
             <Chip
               key={sub.id}
               label={sub.nome}
               onClick={() => handleSubCategoryChange(sub.id)}
-              color={subCategory === sub.id ? "primary" : "default"}
-              variant={subCategory === sub.id ? "filled" : "outlined"}
+              color={selectedCategories.subCategoryId === sub.id ? "primary" : "default"}
+              variant={selectedCategories.subCategoryId === sub.id ? "filled" : "outlined"}
             />
           ))}
         </Box>
