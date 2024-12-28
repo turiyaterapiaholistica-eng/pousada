@@ -13,8 +13,17 @@ const apiService = {
   },
   
   post: async (url, data) => {
-    const response = await axiosInstance.post(url, data);
-    return response.data;
+    try {
+      const response = await axiosInstance.post(url, data);
+      return response.data;
+    } catch (error) {
+      console.error('API Error:', {
+        url,
+        data,
+        error: error.response?.data || error.message
+      });
+      throw error;
+    }
   },
   
   patch: async (url, data) => {

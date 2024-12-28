@@ -1,6 +1,6 @@
 from django.shortcuts import render
 from rest_framework import viewsets, status
-from django.db.models import Sum, F
+from django.db.models import Case, When, F, Sum
 from django.utils import timezone
 from datetime import datetime, timedelta
 from rest_framework.decorators import action
@@ -85,9 +85,15 @@ class ConsumacaoViewSet(viewsets.ModelViewSet):
             data_hora__range=(start_date, end_date),
             status='pago'
         ).annotate(
-            item_total=F('itemconsumacao__quantidade') * F('itemconsumacao__item__preco')
+            item_price=Case(
+                When(
+                    isBusinessWorker=True,
+                    then=F('itemconsumacao__item__preco_custo')
+                ),
+                default=F('itemconsumacao__item__preco')
+            )
         ).aggregate(
-            total=Sum('item_total')
+            total=Sum(F('itemconsumacao__quantidade') * F('item_price'))
         )['total'] or 0
 
         itens_mais_vendidos = ItemConsumacao.objects.filter(

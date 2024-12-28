@@ -326,15 +326,15 @@ export default function Consumacao() {
       const comandasRes = await api.get(`/consumacoes/?quarto=${quarto}`);
       let consumacaoId;
   
-      if (comandasRes.data.length > 0 && comandasRes.data[0].status === 'aberto') {
-        consumacaoId = comandasRes.data[0].id;
+      if (comandasRes.length > 0 && comandasRes[0].status === 'aberto') {
+        consumacaoId = comandasRes[0].id;
       } else {
         const novaComandaRes = await api.post('/consumacoes/', {
           quarto,
           status: 'aberto',
-          isBusinessWorker // Add this line
+          isBusinessWorker
         });
-        consumacaoId = novaComandaRes.data.id;
+        consumacaoId = novaComandaRes.id;  // Remove .data
       }
   
       for (const item of carrinho) {
@@ -349,7 +349,11 @@ export default function Consumacao() {
       setCheckoutOpen(false);
       showSnackbar('Pedido realizado com sucesso!');
     } catch (error) {
-      showSnackbar('Erro ao realizar pedido', 'error');
+      console.error('Checkout error:', error);
+      showSnackbar(
+        error.response?.data?.detail || 'Erro ao realizar pedido',
+        'error'
+      );
     }
   };
 
@@ -625,10 +629,10 @@ export default function Consumacao() {
                         secondary={
                           <Box>
                             <Typography variant="body2">
-                              {formatMoney(isBusinessWorker && item.preco_funcionario ? item.preco_funcionario : item.preco)} x {item.quantidade}
+                              {formatMoney(isBusinessWorker && item.preco_custo ? item.preco_custo : item.preco)} x {item.quantidade}
                             </Typography>
                             <Typography variant="subtitle2" color="primary">
-                              {formatMoney((isBusinessWorker && item.preco_funcionario ? item.preco_funcionario : item.preco) * item.quantidade)}
+                              {formatMoney((isBusinessWorker && item.preco_custo ? item.preco_custo : item.preco) * item.quantidade)}
                             </Typography>
                           </Box>
                         }

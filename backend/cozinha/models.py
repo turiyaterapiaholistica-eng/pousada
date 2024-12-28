@@ -58,8 +58,8 @@ class Consumacao(models.Model):
     def total(self):
         total = 0
         for item_consumacao in self.itemconsumacao_set.all():
-            if self.isBusinessWorker and item_consumacao.item.preco_funcionario is not None:
-                preco = item_consumacao.item.preco_funcionario
+            if self.isBusinessWorker and item_consumacao.item.preco_custo is not None:
+                preco = item_consumacao.item.preco_custo
             else:
                 preco = item_consumacao.item.preco
             total += item_consumacao.quantidade * preco
