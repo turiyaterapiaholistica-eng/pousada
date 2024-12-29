@@ -11,6 +11,8 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import MoneyIcon from '@mui/icons-material/Money';
 import api from '../services/api';
 import ComandaDetails from '../components/ComandaDetails';
+import ComandasGrid from '../components/ComandasGrid';
+
 
 const STATUS_OPTIONS = [
   { value: 'aberto', label: 'Aberto' },
@@ -35,7 +37,7 @@ export default function GestaoComandas() {
     status: 'aberto',
     isBusinessWorker: false
   });
-
+  const [detailsComanda, setDetailsComanda] = useState(null);  // New state for details
   const [searchQuarto, setSearchQuarto] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const STATUS_OPTIONS = [
@@ -56,7 +58,6 @@ export default function GestaoComandas() {
   const fetchComandas = async () => {
     try {
       const data = await api.get('/consumacoes/');
-      console.log('Comandas loaded:', data);
       setComandas(data);
     } catch (error) {
       console.error('Error loading comandas:', error);
@@ -83,13 +84,21 @@ export default function GestaoComandas() {
 
   const handleCreateComanda = async () => {
     try {
-      await api.post('/consumacoes/', novaComanda);
-      setOpenDialog(false);
+
+      // Validate comanda data
+      if (!novaComanda.quarto) {
+        showSnackbar('O número do quarto é obrigatório', 'error');
+        return;
+      }
+      const response = await api.post('/consumacoes/', novaComanda);
       showSnackbar('Comanda criada com sucesso!');
-      fetchComandas();
+      await fetchComandas(); // Add await here
       setNovaComanda({ quarto: '', status: 'aberto', isBusinessWorker: false });
     } catch (error) {
-      showSnackbar('Erro ao criar comanda', 'error');
+      console.error('Error creating comanda:', error);
+      // More detailed error message
+      const errorMessage = error.response?.data?.detail || error.message || 'Erro ao criar comanda';
+      showSnackbar(errorMessage, 'error');
     }
   };
 
@@ -107,27 +116,33 @@ export default function GestaoComandas() {
     if (!selectedComanda || !paymentAmount) return;
     
     try {
-      // Register the payment
-      await api.payments.register(selectedComanda.id, {
-        amount: parseFloat(paymentAmount),
-        method: 'dinheiro', // You can add a form field for this later
-        notes: ''
+      await api.post(`/consumacoes/${selectedComanda.id}/registrar_pagamento/`, {
+        valor: paymentAmount,
+        forma_pagamento: 'dinheiro'
       });
-  
-      // Refresh the comandas data to update the UI
+
+      // Refresh the comandas data
       await fetchComandas();
       
-      // Clear the payment amount
+      // Find the updated comanda
+      const updatedComandas = await api.get('/consumacoes/');
+      const updatedComanda = updatedComandas.find(c => c.id === selectedComanda.id);
+      
+      // Update selected comanda with new data
+      setSelectedComanda(updatedComanda);
+      
+      // Clear payment amount
       setPaymentAmount('');
       
       // Show success message
       showSnackbar('Pagamento registrado com sucesso!');
-  
-      // If the payment was successful, find and update the selected comanda
-      const updatedComandas = await api.get('/consumacoes/');
-      const updatedComanda = updatedComandas.find(c => c.id === selectedComanda.id);
-      if (updatedComanda) {
-        setSelectedComanda(updatedComanda);
+      
+      // Check if saldo is zero and update status if needed
+      if (updatedComanda && updatedComanda.saldo <= 0) {
+        await api.patch(`/consumacoes/${selectedComanda.id}/`, {
+          status: 'pago'
+        });
+        await fetchComandas();  // Refresh again to get the updated status
       }
       
     } catch (error) {
@@ -139,7 +154,7 @@ export default function GestaoComandas() {
         'error'
       );
     }
-  }
+  };
 
   const handleUpdateComanda = async (updates) => {
     if (!selectedComanda) return;
@@ -164,6 +179,15 @@ export default function GestaoComandas() {
     }).format(Number(value) || 0);
   };
  
+  const handleOpenDetails = (comanda) => {
+    setDetailsComanda(comanda);
+    setOpenDetails(true);
+  };
+
+  const handleCloseDetails = () => {
+    setOpenDetails(false);
+    setDetailsComanda(null);
+  };
 
   return (
     <Box>
@@ -172,6 +196,7 @@ export default function GestaoComandas() {
       </Typography>
 
       <Grid container spacing={3} sx={{ mb: 4 }}>
+
         {/* Left Column - Selected Comanda */}
         <Grid size={8}>
           <Paper 
@@ -338,71 +363,18 @@ export default function GestaoComandas() {
       </Grid>
 
       {/* Comandas Grid */}
-      <Grid container spacing={2}>
-        {filteredComandas.map((comanda) => (
-          <Grid xs={12} sm={6} md={4} lg={3} key={comanda.id}>
-            <Card 
-              sx={{ 
-                height: '100%',
-                cursor: 'pointer',
-                transition: 'transform 0.2s',
-                '&:hover': {
-                  transform: 'scale(1.02)',
-                },
-                border: selectedComanda?.id === comanda.id ? '2px solid #1976d2' : 'none'
-              }}
-              onClick={() => setSelectedComanda(comanda)}
-            >
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Quarto {comanda.quarto}
-                </Typography>
-                <Box display="flex" justifyContent="flex-end" gap={1} mb={2}>
-                  <Chip 
-                    label={comanda.isBusinessWorker ? "Funcionário" : "Cliente"}
-                    size="small"
-                    color={comanda.isBusinessWorker ? "info" : "default"}
-                  />
-                  <Chip 
-                    label={comanda.status.charAt(0).toUpperCase() + comanda.status.slice(1)}
-                    color={STATUS_COLORS[comanda.status]}
-                    size="small"
-                  />
-                </Box>
-                <Typography variant="body1" gutterBottom>
-                  Total: {formatMoney(comanda.total)}
-                </Typography>
-                <Typography variant="body1" gutterBottom>
-                  Pago: {formatMoney(comanda.total_pago)}
-                </Typography>
-                <Typography 
-                  variant="body1" 
-                  color={comanda.saldo > 0 ? "error" : "success"}
-                >
-                  Saldo: {formatMoney(comanda.saldo)}
-                </Typography>
-              </CardContent>
-              <CardActions>
-                <Button
-                  size="small"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setOpenDetails(true);
-                  }}
-                >
-                  Ver Detalhes
-                </Button>
-              </CardActions>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+      <ComandasGrid 
+        comandas={filteredComandas}
+        onSelectComanda={setSelectedComanda}
+        selectedComandaId={selectedComanda?.id}
+        onOpenDetails={handleOpenDetails}
+      />
 
-      {/* Modal de detalhes da comanda */}
+      {/* Update the ComandaDetails component usage */}
       <ComandaDetails
-        comanda={selectedComanda}
+        comanda={detailsComanda}
         open={openDetails}
-        onClose={() => setOpenDetails(false)}
+        onClose={handleCloseDetails}
       />
 
       {/* Snackbar para feedback */}

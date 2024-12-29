@@ -44,9 +44,9 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Layout />}>
-              <Route index element={<Consumacao />} />
-              <Route path="comandas" element={<GestaoComandas />} />
-              <Route path="dashboard" element={<Dashboard />} />
+            <Route index element={<Consumacao />} />
+            <Route path="comandas" element={<GestaoComandas />} />
+            <Route path="dashboard" element={<Dashboard />} />
 
             </Route>
           </Routes>

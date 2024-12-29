@@ -1,3 +1,4 @@
+// components/ComandaDetails.js
 import React from 'react';
 import {
   Dialog,
@@ -26,6 +27,13 @@ export default function ComandaDetails({ comanda, open, onClose }) {
     return new Date(dateString).toLocaleString('pt-BR');
   };
 
+  const getEffectivePrice = (item) => {
+    if (comanda?.isBusinessWorker && item.preco_custo != null) {
+      return item.preco_custo;
+    }
+    return item.preco;
+  };
+
   return (
     <Dialog 
       open={open} 
@@ -51,6 +59,11 @@ export default function ComandaDetails({ comanda, open, onClose }) {
           <Typography variant="body1" color="text.secondary" gutterBottom>
             Status: {comanda?.status.charAt(0).toUpperCase() + comanda?.status.slice(1)}
           </Typography>
+          {comanda?.isBusinessWorker && (
+            <Typography variant="body1" color="info.main" gutterBottom>
+              Comanda de Funcionário
+            </Typography>
+          )}
         </Box>
         
         <Table>
@@ -63,23 +76,33 @@ export default function ComandaDetails({ comanda, open, onClose }) {
             </TableRow>
           </TableHead>
           <TableBody>
-            {comanda?.itens.map((item) => (
-              <TableRow key={item.id}>
-                <TableCell>
-                  <Typography variant="body1">{item.item.nome}</Typography>
-                  {item.observacao && (
-                    <Typography variant="caption" color="text.secondary">
-                      Obs: {item.observacao}
-                    </Typography>
-                  )}
-                </TableCell>
-                <TableCell align="center">{item.quantidade}</TableCell>
-                <TableCell align="right">{formatMoney(item.item.preco)}</TableCell>
-                <TableCell align="right">
-                  {formatMoney(item.item.preco * item.quantidade)}
-                </TableCell>
-              </TableRow>
-            ))}
+            {comanda?.itens.map((item) => {
+              const effectivePrice = getEffectivePrice(item.item);
+              return (
+                <TableRow key={item.id}>
+                  <TableCell>
+                    <Typography variant="body1">{item.item.nome}</Typography>
+                    {item.observacao && (
+                      <Typography variant="caption" color="text.secondary">
+                        Obs: {item.observacao}
+                      </Typography>
+                    )}
+                  </TableCell>
+                  <TableCell align="center">{item.quantidade}</TableCell>
+                  <TableCell align="right">
+                    {formatMoney(effectivePrice)}
+                    {comanda?.isBusinessWorker && item.item.preco_custo && (
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        Preço Funcionário
+                      </Typography>
+                    )}
+                  </TableCell>
+                  <TableCell align="right">
+                    {formatMoney(effectivePrice * item.quantidade)}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
             <TableRow>
               <TableCell colSpan={3} align="right">
                 <Typography variant="subtitle1">Total:</Typography>
@@ -90,6 +113,30 @@ export default function ComandaDetails({ comanda, open, onClose }) {
                 </Typography>
               </TableCell>
             </TableRow>
+            {comanda?.total_pago > 0 && (
+              <>
+                <TableRow>
+                  <TableCell colSpan={3} align="right">
+                    <Typography variant="subtitle1">Total Pago:</Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography variant="subtitle1">
+                      {formatMoney(comanda?.total_pago)}
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell colSpan={3} align="right">
+                    <Typography variant="subtitle1">Saldo:</Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography variant="subtitle1" color={comanda?.saldo > 0 ? "error.main" : "success.main"}>
+                      {formatMoney(comanda?.saldo)}
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              </>
+            )}
           </TableBody>
         </Table>
       </DialogContent>

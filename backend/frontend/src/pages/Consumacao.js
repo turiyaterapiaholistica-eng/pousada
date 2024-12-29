@@ -13,6 +13,9 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CategoryTabs from '../components/CategoryTabs';
 import api from '../services/api';
+import CartSidebar from '../components/CartSidebar';  
+import ItemGrid from '../components/ItemGrid';  
+
 
 export default function Consumacao() {
   const [categorias, setCategorias] = useState([]);
@@ -27,7 +30,7 @@ export default function Consumacao() {
   const [observacao, setObservacao] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [quantidades, setQuantidades] = useState({});
-  const [drawerOpen, setDrawerOpen] = useState(true);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [showOnlyAvailable, setShowOnlyAvailable] = useState(true);
   const [isBusinessWorker, setIsBusinessWorker] = useState(false);
   const drawerWidth = 400;
@@ -277,36 +280,6 @@ export default function Consumacao() {
     }));
   };
 
-  // const adicionarAoCarrinho = (item) => {
-  //   const quantidade = quantidades[item.id];
-  //   const precoAtual = isBusinessWorker && item.preco_funcionario 
-  //     ? item.preco_funcionario 
-  //     : item.preco;
-  
-  //   const itemExistente = carrinho.find(i => i.id === item.id);
-  
-  //   if (itemExistente) {
-  //     setCarrinho(carrinho.map(i => 
-  //       i.id === item.id 
-  //         ? { ...i, quantidade: i.quantidade + quantidade }
-  //         : i
-  //     ));
-  //   } else {
-  //     setCarrinho([...carrinho, { 
-  //       ...item, 
-  //       quantidade,
-  //       precoEfetivo: precoAtual // Store the effective price when adding to cart
-  //     }]);
-  //   }
-  
-  //   setQuantidades(prev => ({
-  //     ...prev,
-  //     [item.id]: 1
-  //   }));
-  
-  //   showSnackbar(`${quantidade}x ${item.nome} adicionado ao carrinho`);
-  // };
-
   const removerDoCarrinho = (itemId) => {
     setCarrinho(carrinho.filter(item => item.id !== itemId));
   };
@@ -378,20 +351,30 @@ export default function Consumacao() {
     const precoEfetivo = getEffectivePrice(item);
     
     return (
-      <Typography variant="h6" color="primary" sx={{ mt: 2 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+      <Typography variant="h6" color="primary">
         {precoEfetivo === '-' ? (
           <span>-</span>
         ) : (
-          <>
-            {formatMoney(precoEfetivo)}
-            {isBusinessWorker && item.preco_custo != null && (
-              <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                (Preço funcionário)
-              </Typography>
-            )}
-          </>
+          formatMoney(precoEfetivo)
         )}
       </Typography>
+      {isBusinessWorker && item.preco_custo != null && (
+        <Typography 
+          variant="caption" 
+          color="text.secondary" 
+          sx={{ 
+            mt: -0.5,
+            lineHeight: 1,
+            textWrap:'nowrap',
+            overflow:'visible',
+            fontSize:'5px'
+          }}
+        >
+          (Preço funcionário)
+        </Typography>
+      )}
+    </Box>
     );
   };
 
@@ -413,31 +396,34 @@ export default function Consumacao() {
   );
 
 
-  console.log('Rendering items...');
-  const filteredItems = getFilteredItems();
-  console.log('Number of filtered items:', filteredItems.length);
+  // console.log('Rendering items...');
+  // const filteredItems = getFilteredItems();
+  // console.log('Number of filtered items:', filteredItems.length);
 
-  if (filteredItems.length === 0) {
-    return (
-      <Typography>
-        No items found. Debug info:
-        Main Category: {selectedCategories.mainCategoryId},
-        Sub Category: {selectedCategories.subCategoryId},
-        Total Items: {itens.length},
-        Show Only Available: {showOnlyAvailable.toString()}
-      </Typography>
-    );
-  }
+  // if (filteredItems.length === 0) {
+  //   return (
+  //     <Typography>
+  //       No items found. Debug info:
+  //       Main Category: {selectedCategories.mainCategoryId},
+  //       Sub Category: {selectedCategories.subCategoryId},
+  //       Total Items: {itens.length},
+  //       Show Only Available: {showOnlyAvailable.toString()}
+  //     </Typography>
+  //   );
+  // }
 
   return (
     <Box sx={{ display: 'flex' }}>
       <Box 
         sx={{ 
           flexGrow: 1, 
-          width: `calc(100% - ${drawerOpen ? drawerWidth : '50'}px)`,
-          ml: 2
+          width: '90%',
+          // width: `calc(100% - ${drawerOpen ? drawerWidth : '50'}px)`,
+          ml: 2,
         }}
       >
+
+        {/* Settings and order selection  */}
         <Box 
           sx={{ 
             mb: 2,
@@ -445,6 +431,8 @@ export default function Consumacao() {
             justifyContent: 'space-between' 
           }}
         >
+
+          
           <Box>
             <FormControlLabel
               control={
@@ -472,6 +460,7 @@ export default function Consumacao() {
               label="Somente itens disponíveis"
             />
           </Box>
+
           <TextField
             select
             label="Comandas Abertas"
@@ -488,6 +477,7 @@ export default function Consumacao() {
               </MenuItem>
             ))}
           </TextField>
+
         </Box>
         
         <CategoryTabs 
@@ -496,170 +486,32 @@ export default function Consumacao() {
           selectedCategories={selectedCategories}
         />
         
-        <Grid container spacing={3} sx={{ mt: 2 }}>
-          {getFilteredItems().map(item => (
-            <Grid xs={12} sm={6} md={4} key={item.id}>
-              <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                <CardMedia
-                  component="div"
-                  sx={{
-                    height: 140,
-                    bgcolor: 'grey.300',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                >
-                  {item.imagem ? (
-                    <img
-                      src={item.imagem && !item.imagem.startsWith('http') ? `/media/${item.imagem}` : item.imagem}
-                      alt={item.nome}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    />
-                  ) : (
-                    <Typography color="text.secondary">
-                      Imagem não disponível
-                    </Typography>
-                  )}
-                </CardMedia>
-                  <CardContent sx={{ flexGrow: 1 }}>
-                  <Typography gutterBottom variant="h6" component="h2">
-                    {item.nome}
-                  </Typography>
-                  <Typography color="text.secondary">
-                    {item.descricao}
-                  </Typography>
-                  {renderPreco(item)}
-                </CardContent>
-                <CardActions sx={{ p: 2, pt: 0 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
-                    <IconButton 
-                      size="small"
-                      onClick={() => handleQuantidadeChange(item.id, -1)}
-                    >
-                      <RemoveIcon />
-                    </IconButton>
-                    <Typography>{quantidades[item.id] || 1}</Typography>
-                    <IconButton 
-                      size="small"
-                      onClick={() => handleQuantidadeChange(item.id, 1)}
-                    >
-                      <AddIcon />
-                    </IconButton>
-                    <Button 
-                      variant="contained" 
-                      sx={{ ml: 'auto' }}
-                      onClick={() => adicionarAoCarrinho(item)}
-                    >
-                      Adicionar
-                    </Button>
-                  </Box>
-                </CardActions>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
+        {/* Cards with products */}
+
+        <ItemGrid 
+          items={getFilteredItems()}
+          handleQuantidadeChange={handleQuantidadeChange}
+          quantidades={quantidades}
+          adicionarAoCarrinho={adicionarAoCarrinho}
+          renderPreco={renderPreco}
+        />
+
 
       </Box>
 
-      <Drawer
-        variant="permanent"
-        anchor="right"
-        sx={{
-          width: drawerOpen ? drawerWidth : 50,
-          flexShrink: 0,
-          '& .MuiDrawer-paper': {
-            width: drawerOpen ? drawerWidth : 50,
-            boxSizing: 'border-box',
-            marginTop: '64px', // Height of AppBar
-            height: 'calc(100% - 64px)',
-            overflow: 'hidden'
-          },
-        }}
-      >
-        <Box sx={{ 
-          display: 'flex',
-          flexDirection: 'column',
-          height: '100%'
-        }}>
-          <IconButton 
-            onClick={() => setDrawerOpen(!drawerOpen)}
-            sx={{ alignSelf: drawerOpen ? 'flex-start' : 'center', m: 1 }}
-          >
-            {drawerOpen ? <ChevronRightIcon /> : <ChevronLeftIcon />}
-          </IconButton>
+      {/* Sidebar with itens list and total */}
 
-          {drawerOpen && (
-            <>
-              <Typography variant="h6" sx={{ p: 2, pb: 1 }}>
-                Carrinho
-              </Typography>
-              <List sx={{ flexGrow: 1, overflow: 'auto', px: 2 }}>
-                {carrinho.map((item) => (
-                  <React.Fragment key={item.id}>
-                    <ListItem
-                      secondaryAction={
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <IconButton 
-                            edge="end" 
-                            size="small"
-                            onClick={() => atualizarQuantidadeCarrinho(item.id, -1)}
-                          >
-                            <RemoveIcon />
-                          </IconButton>
-                          <Typography>{item.quantidade}</Typography>
-                          <IconButton 
-                            edge="end" 
-                            size="small"
-                            onClick={() => atualizarQuantidadeCarrinho(item.id, 1)}
-                          >
-                            <AddIcon />
-                          </IconButton>
-                          <IconButton 
-                            edge="end"
-                            onClick={() => removerDoCarrinho(item.id)}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </Box>
-                      }
-                    >
-                      <ListItemText
-                        primary={item.nome}
-                        secondary={
-                          <Box>
-                            <Typography variant="body2">
-                              {formatMoney(isBusinessWorker && item.preco_custo ? item.preco_custo : item.preco)} x {item.quantidade}
-                            </Typography>
-                            <Typography variant="subtitle2" color="primary">
-                              {formatMoney((isBusinessWorker && item.preco_custo ? item.preco_custo : item.preco) * item.quantidade)}
-                            </Typography>
-                          </Box>
-                        }
-                      />
-                    </ListItem>
-                    <Divider />
-                  </React.Fragment>
-                ))}
-              </List>
-              <Box sx={{ p: 2 }}>
-                <Typography variant="h6" gutterBottom>
-                  Total: {formatMoney(totalCarrinho)}
-                </Typography>
-                <Button
-                  variant="contained"
-                  fullWidth
-                  disabled={carrinho.length === 0}
-                  onClick={() => setCheckoutOpen(true)}
-                  sx={{ mt: 2 }}
-                >
-                  Finalizar Pedido
-                </Button>
-              </Box>
-            </>
-          )}
-        </Box>
-      </Drawer>
+      <CartSidebar 
+        drawerWidth={drawerWidth}
+        drawerOpen={drawerOpen}
+        setDrawerOpen={setDrawerOpen}
+        carrinho={carrinho}
+        atualizarQuantidadeCarrinho={atualizarQuantidadeCarrinho}
+        removerDoCarrinho={removerDoCarrinho}
+        formatMoney={formatMoney}
+        totalCarrinho={totalCarrinho}
+        handleCheckoutClick={() => setCheckoutOpen(true)}
+      />
 
       {/* Checkout dialog */}
       <Dialog 
