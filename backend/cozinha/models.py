@@ -63,7 +63,7 @@ class Consumacao(models.Model):
         ('outros', 'Outros')
     ]
     
-    quarto = models.CharField(max_length=10)
+    quarto = models.CharField(max_length=20)
     nome_cliente = models.CharField(max_length=200, blank=True, null=True)
     data_hora = models.DateTimeField(auto_now_add=True)
     itens = models.ManyToManyField('ItemCardapio', through='ItemConsumacao')
