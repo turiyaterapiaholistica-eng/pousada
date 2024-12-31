@@ -29,7 +29,6 @@ class ItemCardapio(models.Model):
     descricao = models.TextField()
     ativo = models.BooleanField(default=True)
     preco = models.DecimalField(max_digits=10, decimal_places=2)
-    # Add worker price field
     preco_custo = models.DecimalField(max_digits=10, decimal_places=2, null=True)
     categoria = models.ForeignKey(Categoria, on_delete=models.SET_NULL, null=True)
     disponivel = models.BooleanField(default=True)
@@ -44,21 +43,54 @@ class ItemCardapio(models.Model):
         ordering = ['categoria__nome', 'nome']    
 
 class Consumacao(models.Model):
-    quarto = models.CharField(max_length=50)
-    data_hora = models.DateTimeField(auto_now_add=True)
-    itens = models.ManyToManyField(ItemCardapio, through='ItemConsumacao')
-    status = models.CharField(max_length=20, choices=[
+    TIPO_CHOICES = [
+        ('cliente', 'Cliente'),
+        ('funcionario', 'Funcionário'),
+        ('hospede', 'Hóspede')
+    ]
+    
+    STATUS_CHOICES = [
         ('aberto', 'Aberto'),
         ('fechado', 'Fechado'),
         ('pago', 'Pago')
-    ], default='aberto')
-    # Add isBusinessWorker field
-    isBusinessWorker = models.BooleanField(default=False)
+    ]
+    
+    PAYMENT_METHOD_CHOICES = [
+        ('dinheiro', 'Dinheiro'),
+        ('cartao_credito', 'Cartão de Crédito'),
+        ('cartao_debito', 'Cartão de Débito'),
+        ('pix', 'PIX'),
+        ('outros', 'Outros')
+    ]
+    
+    quarto = models.CharField(max_length=10)
+    nome_cliente = models.CharField(max_length=200, blank=True, null=True)
+    data_hora = models.DateTimeField(auto_now_add=True)
+    itens = models.ManyToManyField('ItemCardapio', through='ItemConsumacao')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='aberto')
+    tipo_cliente = models.CharField(max_length=20, choices=TIPO_CHOICES, default='cliente')
+    codigo = models.CharField(max_length=50, unique=True, blank=True, null=True)
+    forma_pagamento = models.CharField(
+        max_length=50,
+        choices=PAYMENT_METHOD_CHOICES,
+        null=True,
+        blank=True
+    )
+    
+    # Guest specific fields
+    checkin_date = models.DateTimeField(null=True, blank=True)
+    checkout_date = models.DateTimeField(null=True, blank=True)
+    
+    def codigo_valido(self):
+        if not self.checkout_date:
+            return True
+        expiry_date = self.checkout_date + timedelta(days=2)
+        return timezone.now() <= expiry_date
     
     def total(self):
         total = 0
         for item_consumacao in self.itemconsumacao_set.all():
-            if self.isBusinessWorker and item_consumacao.item.preco_custo is not None:
+            if self.tipo_cliente == 'funcionario' and item_consumacao.item.preco_custo is not None:
                 preco = item_consumacao.item.preco_custo
             else:
                 preco = item_consumacao.item.preco
@@ -72,6 +104,9 @@ class Consumacao(models.Model):
     
     def saldo(self):
         return self.total() - self.total_pago()
+        
+    class Meta:
+        ordering = ['-data_hora']
 
 class ItemConsumacao(models.Model):
     consumacao = models.ForeignKey(Consumacao, on_delete=models.CASCADE)

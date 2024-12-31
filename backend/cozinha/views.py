@@ -3,7 +3,7 @@ from rest_framework import viewsets, status
 from django.db.models import Case, When, F, Sum
 from django.utils import timezone
 from datetime import datetime, timedelta
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from .models import Categoria, ItemCardapio, Consumacao, ItemConsumacao, Pagamento
@@ -11,10 +11,44 @@ from .serializers import CategoriaSerializer, ItemCardapioSerializer, Consumacao
 from rest_framework.exceptions import ValidationError
 from django.db import transaction
 from decimal import Decimal
+from rest_framework.permissions import IsAuthenticated, AllowAny
+# from rest_framework_simplejwt.tokens import RefreshToken
+from django.contrib.auth import login
+from .serializers import UserSerializer, LoginSerializer
+# from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth import login, logout
+from django.views.decorators.csrf import ensure_csrf_cookie
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
 
 
 def index(request, *args, **kwargs):
     return render(request, 'frontend/index.html')
+
+@ensure_csrf_cookie
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def login_view(request):
+    serializer = LoginSerializer(data=request.data)
+    if serializer.is_valid():
+        user = serializer.validated_data
+        login(request, user)
+        return Response({
+            'user': UserSerializer(user).data,
+            'success': True
+        })
+    return Response(serializer.errors, status=400)
+
+@api_view(['POST'])
+def logout_view(request):
+    logout(request)
+    return Response({'success': True})
+
+@api_view(['GET'])
+def user_info(request):
+    if request.user.is_authenticated:
+        return Response(UserSerializer(request.user).data)
+    return Response({'authenticated': False}, status=403)
 
 class CategoriaViewSet(viewsets.ModelViewSet):
     queryset = Categoria.objects.all()
@@ -51,6 +85,90 @@ class ConsumacaoViewSet(viewsets.ModelViewSet):
         'pagamentos'
     ).all()
     serializer_class = ConsumacaoSerializer
+
+    @action(detail=True, methods=['post'])
+    def adicionar_item(self, request, pk=None):
+        consumacao = self.get_object()
+        
+        # Check if we're receiving a batch of items
+        items_data = request.data.get('items', None)
+        
+        if items_data:
+            # Batch processing
+            created_items = []
+            for item_data in items_data:
+                item_id = item_data.get('item_id')
+                quantidade = item_data.get('quantidade', 1)
+                observacao = item_data.get('observacao', '')
+                
+                if not item_id:
+                    return Response(
+                        {'error': 'item_id é obrigatório para todos os itens'}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                    
+                try:
+                    item = get_object_or_404(ItemCardapio, id=item_id)
+                    
+                    if not item.disponivel:
+                        return Response(
+                            {'error': f'Item {item.nome} não está disponível'}, 
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+                    
+                    item_consumacao = ItemConsumacao.objects.create(
+                        consumacao=consumacao,
+                        item=item,
+                        quantidade=quantidade,
+                        observacao=observacao
+                    )
+                    created_items.append(item_consumacao)
+                    
+                except ItemCardapio.DoesNotExist:
+                    return Response(
+                        {'error': f'Item com id {item_id} não encontrado'}, 
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+            
+            serializer = self.get_serializer(consumacao)
+            return Response(serializer.data)
+            
+        else:
+            # Single item processing (existing functionality)
+            item_id = request.data.get('item_id')
+            quantidade = request.data.get('quantidade', 1)
+            observacao = request.data.get('observacao', '')
+            
+            if not item_id:
+                return Response(
+                    {'error': 'item_id é obrigatório'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+            try:
+                item = get_object_or_404(ItemCardapio, id=item_id)
+                
+                if not item.disponivel:
+                    return Response(
+                        {'error': 'Item não está disponível'}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                item_consumacao = ItemConsumacao.objects.create(
+                    consumacao=consumacao,
+                    item=item,
+                    quantidade=quantidade,
+                    observacao=observacao
+                )
+                
+                serializer = self.get_serializer(consumacao)
+                return Response(serializer.data)
+                
+            except ItemCardapio.DoesNotExist:
+                return Response(
+                    {'error': 'Item não encontrado'}, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
     
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -218,7 +336,6 @@ class ConsumacaoViewSet(viewsets.ModelViewSet):
         serializer = PagamentoSerializer(pagamentos, many=True)
         return Response(serializer.data)
         
-
 class PagamentoViewSet(viewsets.ModelViewSet):
     queryset = Pagamento.objects.all()
     serializer_class = PagamentoSerializer
@@ -226,4 +343,21 @@ class PagamentoViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return Pagamento.objects.filter(
             consumacao_id=self.kwargs.get('consumacao_pk')
+        )
+    
+@action(detail=False, methods=['POST'])
+def authenticate(self, request):
+    code = request.data.get('code')
+    password = request.data.get('password')
+    try:
+        comanda = Consumacao.objects.get(
+            quarto=code,
+            status='aberto'
+        )
+        # Add your password validation logic here
+        return Response(ConsumacaoDetailSerializer(comanda).data)
+    except Consumacao.DoesNotExist:
+        return Response(
+            {'error': 'Invalid credentials'}, 
+            status=status.HTTP_401_UNAUTHORIZED
         )

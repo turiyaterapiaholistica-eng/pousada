@@ -5,9 +5,42 @@ import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 
+const ItemImage = ({ item }) => {
+  const isPNG = item.imagem?.toLowerCase().endsWith('.png');
+  
+  if (!item.imagem) {
+    return (
+      <Typography color="text.secondary">
+        Imagem não disponível
+      </Typography>
+    );
+  }
+
+  const imageUrl = item.imagem.startsWith('http') 
+    ? item.imagem 
+    : `/media/${item.imagem}`;
+
+  return (
+    <img
+      src={imageUrl}
+      alt={item.nome}
+      style={{
+        width: '100%',
+        height: '100%',
+        objectFit: 'cover',
+        ...(isPNG && {
+          objectFit: 'contain',
+          padding: '8px',
+          backgroundColor: 'white'
+        })
+      }}
+    />
+  );
+};
+
 const ItemGrid = ({ items, handleQuantidadeChange, quantidades, adicionarAoCarrinho, renderPreco }) => {
   return (
-    <Grid container spacing={3} sx={{ mt: 2, justifyContent:'center' }}>
+    <Grid container spacing={3} sx={{ mt: 2, justifyContent: 'center' }}>
       {items.map(item => (
         <Grid xs={12} sm={6} md={4} key={item.id}>
           <Card sx={{ 
@@ -21,24 +54,15 @@ const ItemGrid = ({ items, handleQuantidadeChange, quantidades, adicionarAoCarri
               component="div"
               sx={{
                 height: 140,
-                bgcolor: 'grey.300',
+                bgcolor: 'grey.100',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center'
               }}
             >
-              {item.imagem ? (
-                <img
-                  src={item.imagem && !item.imagem.startsWith('http') ? `/media/${item.imagem}` : item.imagem}
-                  alt={item.nome}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                />
-              ) : (
-                <Typography color="text.secondary">
-                  Imagem não disponível
-                </Typography>
-              )}
+              <ItemImage item={item} />
             </CardMedia>
+            
             <CardContent sx={{ flexGrow: 1, pb: 1 }}>
               <Typography gutterBottom fontSize={20} ariant="h6" component="h2" sx={{ mb: 1, textWrap:'nowrap', overflow:'hidden' }}>
                 {item.nome}
@@ -113,14 +137,7 @@ const ItemGrid = ({ items, handleQuantidadeChange, quantidades, adicionarAoCarri
                   >
                     <ShoppingCartIcon />
                   </IconButton>
-                  {/* <Button 
-                    variant="contained"
-                    fontSize={2}
-                    size="small"
-                    onClick={() => adicionarAoCarrinho(item)}
-                  >
-                    Adicionar
-                  </Button> */}
+      
                 </Box>
               </Box>
             </CardContent>

@@ -31,5 +31,10 @@ consumacoes_router.register(
 urlpatterns = [
     path('api/', include(router.urls)),
     path('api/', include(consumacoes_router.urls)),
-    re_path(r'^.*$', views.index)
+    re_path(r'^.*$', views.index),
+
+    path('api/auth/login/', views.login_view, name='login'),
+    path('api/auth/logout/', views.logout_view, name='logout'),
+    path('api/auth/user/', views.user_info, name='user-info'),
+
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

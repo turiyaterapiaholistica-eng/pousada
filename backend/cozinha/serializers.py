@@ -1,6 +1,8 @@
 # serializers.py
 from rest_framework import serializers
 from .models import Categoria, ItemCardapio, Consumacao, ItemConsumacao, Pagamento
+from django.contrib.auth import authenticate
+from django.contrib.auth.models import User
 
 class SubcategoriaSerializer(serializers.ModelSerializer):
     class Meta:
@@ -35,11 +37,28 @@ class ConsumacaoSerializer(serializers.ModelSerializer):
     total = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     total_pago = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     saldo = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    codigo_valido = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Consumacao
-        fields = ['id', 'quarto', 'data_hora', 'status', 'itens', 'total', 
-                 'isBusinessWorker', 'total_pago', 'saldo']
+        fields = [
+            'id', 'quarto', 'nome_cliente', 'data_hora', 'status', 'tipo_cliente',
+            'codigo', 'forma_pagamento', 'checkin_date', 'checkout_date',
+            'itens', 'total', 'total_pago', 'saldo', 'codigo_valido'
+        ]
+        read_only_fields = ['codigo_valido']
+
+    def validate(self, data):
+        if data.get('tipo_cliente') == 'hospede':
+            if not data.get('checkin_date'):
+                raise serializers.ValidationError({'checkin_date': 'Required for guests'})
+            if not data.get('checkout_date'):
+                raise serializers.ValidationError({'checkout_date': 'Required for guests'})
+            if data['checkout_date'] <= data['checkin_date']:
+                raise serializers.ValidationError({
+                    'checkout_date': 'Must be after checkin date'
+                })
+        return data
 
     def get_total(self, obj):
         return obj.total()
@@ -56,3 +75,18 @@ class ConsumacaoDetailSerializer(ConsumacaoSerializer):
     
     class Meta(ConsumacaoSerializer.Meta):
         fields = ConsumacaoSerializer.Meta.fields + ['pagamentos']
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'is_staff')
+
+class LoginSerializer(serializers.Serializer):
+    username = serializers.CharField()
+    password = serializers.CharField()
+
+    def validate(self, data):
+        user = authenticate(**data)
+        if user and user.is_active:
+            return user
+        raise serializers.ValidationError("Incorrect Credentials")

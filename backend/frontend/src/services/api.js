@@ -1,11 +1,37 @@
-// services/api.js
 import axios from 'axios';
 
 const axiosInstance = axios.create({
-  baseURL: window.location.origin + '/api'
+    baseURL: '/api',
+    withCredentials: true,
+    headers: {
+        'Content-Type': 'application/json',
+    },
+    xsrfCookieName: 'csrftoken',
+    xsrfHeaderName: 'X-CSRFToken',
 });
 
 const apiService = {
+    login: async (username, password) => {
+        const response = await axiosInstance.post('/auth/login/', { 
+            username, 
+            password 
+        });
+        return response.data;
+    },
+
+    logout: async () => {
+        const response = await axiosInstance.post('/auth/logout/');
+        return response.data;
+    },
+
+    getCurrentUser: async () => {
+        try {
+            const response = await axiosInstance.get('/auth/user/');
+            return response.data;
+        } catch (error) {
+            return null;
+        }
+    },
   // Base CRUD methods
   get: async (url) => {
     const response = await axiosInstance.get(url);

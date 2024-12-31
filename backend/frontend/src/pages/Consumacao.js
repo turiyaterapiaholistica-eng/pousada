@@ -368,7 +368,7 @@ export default function Consumacao() {
             lineHeight: 1,
             textWrap:'nowrap',
             overflow:'visible',
-            fontSize:'5px'
+            fontSize:'9px'
           }}
         >
           (Preço funcionário)

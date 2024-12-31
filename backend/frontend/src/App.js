@@ -1,30 +1,17 @@
-// import React from 'react';
-// import {createRoot} from 'react-dom/client';
-
-// export default function App() {
-//   return (
-//     <div>App</div>
-//   );
-// }
-
-
-// const appDiv = document.getElementById("app");
-// const root = createRoot(appDiv);
-// root.render(<App />);
-
-// App.js
 import React, { StrictMode } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import {createRoot} from 'react-dom/client';
+import { createRoot } from 'react-dom/client';
 
 import Consumacao from './pages/Consumacao';
 import Layout from './components/Layout';
 import GestaoComandas from './pages/GestaoComandas';
 import Dashboard from './pages/Dashboard';
-import DebugConsumacao from './pages/Debug_Consumacao';
+import LoginPage from './pages/LoginPage';
+import PublicMenu from './pages/PublicMenu';
+import ProtectedRoute from './components/ProtectedRoute';
 
 const theme = createTheme({
   palette: {
@@ -43,12 +30,23 @@ function App() {
       <LocalizationProvider dateAdapter={AdapterDateFns}>
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Layout />}>
-            <Route index element={<Consumacao />} />
-            <Route path="comandas" element={<GestaoComandas />} />
-            <Route path="dashboard" element={<Dashboard />} />
-
+            {/* Public routes */}
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/menu" element={<PublicMenu />} />
+            
+            {/* Protected routes wrapped in Layout */}
+            <Route element={
+              <ProtectedRoute>
+                <Layout />
+              </ProtectedRoute>
+            }>
+              <Route index element={<Consumacao />} />
+              <Route path="comandas" element={<GestaoComandas />} />
+              <Route path="dashboard" element={<Dashboard />} />
             </Route>
+            
+            {/* Redirect unmatched routes to public menu */}
+            <Route path="*" element={<Navigate to="/menu" replace />} />
           </Routes>
         </BrowserRouter>
       </LocalizationProvider>
@@ -61,7 +59,7 @@ export default App;
 const appDiv = document.getElementById("app");
 const root = createRoot(appDiv);
 root.render(
-      <StrictMode>
-        <App />
-      </StrictMode>
-    );
+  <StrictMode>
+    <App />
+  </StrictMode>
+);
