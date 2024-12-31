@@ -18,11 +18,3 @@ services:
       - key: CORS_ALLOWED_ORIGINS
         value: "https://*.onrender.com,http://localhost:8000,http://127.0.0.1:8000"
 
-databases:
-  - name: sistema_gestao
-    databaseName: cozinha_bznb
-    user: cozinha_bznb_user
-    plan: free
-    ipAllowList:
-      - source: 0.0.0.0/0
-        description: everywhere
