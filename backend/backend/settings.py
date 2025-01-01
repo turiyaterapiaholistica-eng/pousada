@@ -93,7 +93,7 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 
 DATABASES = {
     'default': dj_database_url.config(
-        default=os.getenv('DATABASE_URL', 'postgresql://mypostgres@localhost/cozinha_q495'),
+        default=os.getenv('DATABASE_URL'),
         conn_max_age=600
     )
 }

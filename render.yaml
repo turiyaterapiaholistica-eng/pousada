@@ -3,7 +3,7 @@ services:
     name: backend
     env: python
     buildCommand: chmod +x build.sh && ./build.sh
-    startCommand: cd backend && gunicorn backend.wsgi:application
+    startCommand: gunicorn backend.wsgi:application 
     envVars:
       - key: DATABASE_URL
         fromDatabase:
