@@ -18,5 +18,5 @@ services:
 
 databases:
   - name: villacontainer-db
-    databaseName: villacontainer
-    user: villacontainer
+    databaseName: cozinha
+    user: mypostgres
