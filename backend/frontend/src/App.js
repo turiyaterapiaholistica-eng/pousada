@@ -8,10 +8,12 @@ import { createRoot } from 'react-dom/client';
 import Consumacao from './pages/Consumacao';
 import Layout from './components/Layout';
 import GestaoComandas from './pages/GestaoComandas';
-import Dashboard from './pages/Dashboard';
 import LoginPage from './pages/LoginPage';
 import PublicMenu from './pages/PublicMenu';
 import ProtectedRoute from './components/ProtectedRoute';
+import ImageUpload from './pages/ImageUpload';
+import RestaurantDashboard from './pages/Dashboard';
+
 
 const theme = createTheme({
   palette: {
@@ -42,7 +44,9 @@ function App() {
             }>
               <Route index element={<Consumacao />} />
               <Route path="comandas" element={<GestaoComandas />} />
-              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="/dashboard" element={<RestaurantDashboard />} />
+              <Route path="images" element={<ImageUpload />} />
+
             </Route>
             
             {/* Redirect unmatched routes to public menu */}

@@ -24,6 +24,7 @@ const ComandasGrid = ({ comandas, onSelectComanda, selectedComandaId, onOpenDeta
           <Card 
             sx={{ 
               height: '280px',
+              width: '230px',
               cursor: 'pointer',
               transition: 'transform 0.2s',
               '&:hover': {

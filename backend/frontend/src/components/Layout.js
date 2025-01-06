@@ -40,6 +40,9 @@ const Layout = () => {
               <Button color="inherit" component={RouterLink} to="/comandas">
                 Gestão de Comandas
               </Button>
+              <Button color="inherit" component={RouterLink} to="/images">
+                Imagens
+              </Button>
               <Button color="inherit" component={RouterLink} to="/dashboard">
                 Dashboard
               </Button>

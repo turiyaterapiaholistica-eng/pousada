@@ -51,6 +51,9 @@ INSTALLED_APPS = [
 
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
+
+    'cloudinary_storage',
+    'cloudinary',
 ]
 
 MIDDLEWARE = [
@@ -129,8 +132,12 @@ USE_I18N = True
 USE_TZ = True
 
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Media files configuration
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'frontend', 'static', 'images')
 
 if DEBUG:
     STATICFILES_DIRS = [
@@ -140,9 +147,7 @@ if DEBUG:
 WHITENOISE_MANIFEST_STRICT = False
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-# Media files configuration
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'frontend', 'static', 'images')
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
@@ -166,3 +171,14 @@ REST_FRAMEWORK = {
 
 SESSION_COOKIE_AGE = 86400  # 24 hours in seconds
 SESSION_COOKIE_SECURE = False  # Set to True in production with HTTPS
+
+
+
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': os.getenv('CLOUD_NAME'),
+    'API_KEY': os.getenv('API_KEY'),
+    'API_SECRET': os.getenv('API_SECRET')
+}
+
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+

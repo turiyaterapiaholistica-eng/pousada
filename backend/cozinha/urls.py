@@ -29,12 +29,14 @@ consumacoes_router.register(
 )
 
 urlpatterns = [
-    path('api/', include(router.urls)),
-    path('api/', include(consumacoes_router.urls)),
-    re_path(r'^.*$', views.index),
-
     path('api/auth/login/', views.login_view, name='login'),
     path('api/auth/logout/', views.logout_view, name='logout'),
     path('api/auth/user/', views.user_info, name='user-info'),
+    path('api/', include(router.urls)),
+    path('api/itens/upload_params/', views.ItemCardapioViewSet.as_view({'get': 'upload_params'})),
 
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    path('api/', include(consumacoes_router.urls)),
+    path('', views.index, name='index'),
+    path('<path:path>', views.index, name='index-paths'),
+
+] + static(settings.MEDIA_ROOT, document_root=settings.MEDIA_ROOT)

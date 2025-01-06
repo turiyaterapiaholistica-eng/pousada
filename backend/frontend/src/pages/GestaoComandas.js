@@ -50,6 +50,9 @@ export default function GestaoComandas() {
 
 
 
+
+
+  // Funções criadas
   useEffect(() => {
     fetchComandas();
   }, []);
@@ -74,7 +77,6 @@ export default function GestaoComandas() {
         (error.response?.data?.detail || error.message), 'error');
     }
   };
-  
 
   const filterComandas = () => {
     if (!comandas) return;
@@ -146,49 +148,31 @@ export default function GestaoComandas() {
     }
   };
 
-  // const handleUpdateStatus = async (comandaId, newStatus) => {
-  //   try {
-  //     await api.patch(`/consumacoes/${comandaId}/`, { status: newStatus });
-  //     showSnackbar('Status atualizado com sucesso!');
-  //     fetchComandas();
-  //   } catch (error) {
-  //     showSnackbar('Erro ao atualizar status', 'error');
-  //   }
-  // };
-
   const handleRegisterPayment = async () => {
-    if (!selectedComanda || !paymentAmount) return;
+    if (!selectedComanda || !paymentAmount || !paymentMethod) {
+      showSnackbar('Preencha todos os campos do pagamento', 'error');
+      return;
+    }
     
+    if (Number(paymentAmount) <= 0) {
+      showSnackbar('O valor deve ser maior que zero', 'error');
+      return;
+    }
+
     try {
       await api.post(`/consumacoes/${selectedComanda.id}/registrar_pagamento/`, {
         valor: paymentAmount,
-        forma_pagamento: 'dinheiro'
+        forma_pagamento: paymentMethod,
+        observacao: ''
       });
 
-      // Refresh the comandas data
       await fetchComandas();
-      
-      // Find the updated comanda
-      const updatedComandas = await api.get('/consumacoes/');
-      const updatedComanda = updatedComandas.find(c => c.id === selectedComanda.id);
-      
-      // Update selected comanda with new data
-      setSelectedComanda(updatedComanda);
-      
-      // Clear payment amount
+      const updatedComanda = await api.get(`/consumacoes/${selectedComanda.id}/`);
+      setSelectedComanda(updatedComanda.data);
       setPaymentAmount('');
-      
-      // Show success message
+      setPaymentMethod('');
       showSnackbar('Pagamento registrado com sucesso!');
-      
-      // Check if saldo is zero and update status if needed
-      if (updatedComanda && updatedComanda.saldo <= 0) {
-        await api.patch(`/consumacoes/${selectedComanda.id}/`, {
-          status: 'pago'
-        });
-        await fetchComandas();  // Refresh again to get the updated status
-      }
-      
+
     } catch (error) {
       console.error('Error registering payment:', error);
       showSnackbar(
@@ -280,6 +264,10 @@ export default function GestaoComandas() {
         : [...prev, type]
     );
   };
+
+
+
+  
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column' }}>

@@ -7,6 +7,15 @@ from django.db.models import Sum, Count
 from django.utils import timezone
 from datetime import datetime, timedelta
 
+class Image(models.Model):
+    key = models.CharField(help_text="The public id of the uploaded file", max_length=100)
+    url = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, help_text='The original name of the uploaded image')
+    width = models.IntegerField(help_text='Width in pixels')
+    height = models.IntegerField(help_text='Height in pixels')
+    format = models.CharField(max_length=10)
+    created_at = models.DateTimeField(auto_now_add=True)
+
 class Categoria(models.Model):
     nome = models.CharField(max_length=100)
     descricao = models.TextField(blank=True)
@@ -32,7 +41,7 @@ class ItemCardapio(models.Model):
     preco_custo = models.DecimalField(max_digits=10, decimal_places=2, null=True)
     categoria = models.ForeignKey(Categoria, on_delete=models.SET_NULL, null=True)
     disponivel = models.BooleanField(default=True)
-    imagem = models.ImageField(upload_to='', null=True, blank=True)
+    imagem = models.URLField(max_length=500, null=True, blank=True)
     
     def __str__(self):
         return f"{self.nome} - {self.categoria}"

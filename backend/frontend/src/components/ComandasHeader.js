@@ -146,6 +146,7 @@ const ComandasHeader = ({
             <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
               {isEditing ? (
+                
                 <Box sx={{ width: '100%', display: 'flex', gap: 2, alignItems: 'center' }}>
                   <TextField
                     label="Nome do Cliente"
@@ -190,20 +191,41 @@ const ComandasHeader = ({
                     </IconButton>
                   </Box>
                 </Box>
+                
               ) : (
+
                 <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Box>
-                      <Typography variant="h6">{selectedComanda?.quarto}</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {selectedComanda?.nome_cliente || 'Sem nome'}
-                      </Typography>
-                    </Box>
-                    <Chip 
-                      label={selectedComanda?.tipo_cliente?.charAt(0).toUpperCase() + selectedComanda?.tipo_cliente?.slice(1)}
-                      size="small"
-                      color={selectedComanda?.tipo_cliente === 'funcionario' ? "info" : "default"}
-                    />
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%', justifyContent:'space-between'}}>
+
+                    {selectedComanda ? (
+                      <>
+                        <Box>
+                        <Typography variant="h6">{selectedComanda?.quarto}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {selectedComanda?.nome_cliente || 'Sem nome'}
+                        </Typography>
+                        </Box>
+                        <Chip 
+                          label={selectedComanda?.tipo_cliente?.charAt(0).toUpperCase() + selectedComanda?.tipo_cliente?.slice(1)}
+                          size="small"
+                          color={selectedComanda?.tipo_cliente === 'funcionario' ? "info" : "default"}
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <Box>
+                        <Typography variant="h6">Selecione uma comanda</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Sem nome
+                        </Typography>
+                        </Box>
+                        {/* <Chip 
+                          label={selectedComanda?.tipo_cliente?.charAt(0).toUpperCase() + selectedComanda?.tipo_cliente?.slice(1)}
+                          size="small"
+                          color={selectedComanda?.tipo_cliente === 'funcionario' ? "info" : "default"}
+                        /> */}
+                      </>
+                    )}
                   </Box>
                   <IconButton onClick={() => {
                     if (selectedComanda) {

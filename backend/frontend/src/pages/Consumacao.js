@@ -296,37 +296,44 @@ export default function Consumacao() {
 
   const handleCheckout = async () => {
     try {
-      const comandasRes = await api.get(`/consumacoes/?quarto=${quarto}`);
-      let consumacaoId;
+      if (!selectedComanda && !quarto) {
+        showSnackbar('Por favor selecione uma comanda ou informe o quarto', 'error');
+        return;
+      }
   
-      if (comandasRes.length > 0 && comandasRes[0].status === 'aberto') {
-        consumacaoId = comandasRes[0].id;
+      let consumacaoId;
+      
+      if (selectedComanda) {
+        consumacaoId = selectedComanda;
       } else {
+        // Create new comanda only if none selected
         const novaComandaRes = await api.post('/consumacoes/', {
           quarto,
+          nome_cliente: '', // Could add a field for this
           status: 'aberto',
-          isBusinessWorker
+          tipo_cliente: isBusinessWorker ? 'funcionario' : 'hospede'
         });
-        consumacaoId = novaComandaRes.id;  // Remove .data
+        consumacaoId = novaComandaRes.id;
       }
   
-      for (const item of carrinho) {
-        await api.post(`/consumacoes/${consumacaoId}/adicionar_item/`, {
+      // Add all cart items in a single request
+      await api.post(`/consumacoes/${consumacaoId}/adicionar_item/`, {
+        items: carrinho.map(item => ({
           item_id: item.id,
           quantidade: item.quantidade,
-          observacao
-        });
-      }
+          observacao: item.observacao || ''
+        }))
+      });
   
       setCarrinho([]);
       setCheckoutOpen(false);
       showSnackbar('Pedido realizado com sucesso!');
+      
+      // Refresh comandas list
+      fetchComandas();
     } catch (error) {
       console.error('Checkout error:', error);
-      showSnackbar(
-        error.response?.data?.detail || 'Erro ao realizar pedido',
-        'error'
-      );
+      showSnackbar(error.response?.data?.detail || 'Erro ao realizar pedido', 'error');
     }
   };
 
@@ -379,38 +386,6 @@ export default function Consumacao() {
   };
 
 
-  const renderCartItem = (item) => (
-    <ListItemText
-      primary={item.nome}
-      secondary={
-        <Box>
-          <Typography variant="body2">
-            {formatMoney(item.precoEfetivo)} x {item.quantidade}
-          </Typography>
-          <Typography variant="subtitle2" color="primary">
-            {formatMoney(item.precoEfetivo * item.quantidade)}
-          </Typography>
-        </Box>
-      }
-    />
-  );
-
-
-  // console.log('Rendering items...');
-  // const filteredItems = getFilteredItems();
-  // console.log('Number of filtered items:', filteredItems.length);
-
-  // if (filteredItems.length === 0) {
-  //   return (
-  //     <Typography>
-  //       No items found. Debug info:
-  //       Main Category: {selectedCategories.mainCategoryId},
-  //       Sub Category: {selectedCategories.subCategoryId},
-  //       Total Items: {itens.length},
-  //       Show Only Available: {showOnlyAvailable.toString()}
-  //     </Typography>
-  //   );
-  // }
 
   return (
     <Box sx={{ display: 'flex' }}>
@@ -494,6 +469,7 @@ export default function Consumacao() {
           quantidades={quantidades}
           adicionarAoCarrinho={adicionarAoCarrinho}
           renderPreco={renderPreco}
+          isLoading={isLoading}
         />
 
 

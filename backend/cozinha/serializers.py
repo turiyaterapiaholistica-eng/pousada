@@ -48,17 +48,17 @@ class ConsumacaoSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['codigo_valido']
 
-    def validate(self, data):
-        if data.get('tipo_cliente') == 'hospede':
-            if not data.get('checkin_date'):
-                raise serializers.ValidationError({'checkin_date': 'Required for guests'})
-            if not data.get('checkout_date'):
-                raise serializers.ValidationError({'checkout_date': 'Required for guests'})
-            if data['checkout_date'] <= data['checkin_date']:
-                raise serializers.ValidationError({
-                    'checkout_date': 'Must be after checkin date'
-                })
-        return data
+    # def validate(self, data):
+    #     if data.get('tipo_cliente') == 'hospede':
+    #         if not data.get('checkin_date'):
+    #             raise serializers.ValidationError({'checkin_date': 'Required for guests'})
+    #         if not data.get('checkout_date'):
+    #             raise serializers.ValidationError({'checkout_date': 'Required for guests'})
+    #         if data['checkout_date'] <= data['checkin_date']:
+    #             raise serializers.ValidationError({
+    #                 'checkout_date': 'Must be after checkin date'
+    #             })
+    #     return data
 
     def get_total(self, obj):
         return obj.total()

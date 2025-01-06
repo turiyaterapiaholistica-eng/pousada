@@ -1,208 +1,204 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Box,
-  Paper,
-  Typography,
-  Card,
-  CardContent,
-  TextField,
-  MenuItem,
-} from '@mui/material';
-import { 
-  BarChart, 
-  Bar, 
-  LineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  Legend,
-  ResponsiveContainer 
-} from 'recharts';
 import Grid from '@mui/material/Grid2';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { Card, CardContent, Typography, Stack } from '@mui/material';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import ptBR from 'date-fns/locale/pt-BR';
-import api from '../services/api';
 
-const Dashboard = () => {
-  const [dashboardData, setDashboardData] = useState(null);
+const StatCard = ({ title, value, trend, percent }) => (
+  <Card sx={{ height: '100%' }}>
+    <CardContent>
+      <Typography variant="subtitle2" gutterBottom>
+        {title}
+      </Typography>
+      <Typography variant="h4" component="div">
+        {value}
+      </Typography>
+      <Typography 
+        variant="body2" 
+        sx={{ 
+          color: trend === 'up' ? 'success.main' : 'error.main',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1
+        }}
+      >
+        {trend === 'up' ? '↑' : '↓'} {percent}% vs last period
+      </Typography>
+    </CardContent>
+  </Card>
+);
+
+const RestaurantDashboard = () => {
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, [startDate, endDate]);
+  // Sample data
+  const salesData = [
+    { date: '01/01', sales: 4500 },
+    { date: '02/01', sales: 5200 },
+    { date: '03/01', sales: 4800 },
+    { date: '04/01', sales: 6000 },
+    { date: '05/01', sales: 5700 },
+    { date: '06/01', sales: 6300 },
+    { date: '07/01', sales: 7000 },
+  ];
 
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
-      const response = await api.get('/consumacoes/dashboard_data/', {
-        params: {
-          start_date: startDate.toISOString().split('T')[0],
-          end_date: endDate.toISOString().split('T')[0],
-        },
-      });
-      setDashboardData(response.data);
-    } catch (error) {
-      console.error('Erro ao carregar dados do dashboard:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
-
-  if (loading || !dashboardData) {
-    return (
-      <Box sx={{ p: 3 }}>
-        <Typography>Em breve...</Typography>
-      </Box>
-    );
-  }
+  const categoryData = [
+    { name: 'Pratos Principais', value: 35000 },
+    { name: 'Bebidas', value: 25000 },
+    { name: 'Sobremesas', value: 15000 },
+    { name: 'Aperitivos', value: 12000 },
+    { name: 'Outros', value: 8000 },
+  ];
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
-      <Box sx={{ p: 3 }}>
-        <Grid container spacing={3}>
-          {/* Filtros de data */}
-          <Grid item xs={12}>
-            <Paper sx={{ p: 2, display: 'flex', gap: 2 }}>
-              <DatePicker
-                label="Data Inicial"
-                value={startDate}
-                onChange={setStartDate}
-                renderInput={(params) => <TextField {...params} />}
-              />
-              <DatePicker
-                label="Data Final"
-                value={endDate}
-                onChange={setEndDate}
-                renderInput={(params) => <TextField {...params} />}
-              />
-            </Paper>
-          </Grid>
+      <Stack spacing={3} sx={{ p: 3 }}>
+        {/* Date Filters */}
+        <Card sx={{ mb: 2 }}>
+          <CardContent sx={{ display: 'flex', gap: 2 }}>
+            <DatePicker
+              label="Data Inicial"
+              value={startDate}
+              onChange={setStartDate}
+            />
+            <DatePicker
+              label="Data Final"
+              value={endDate}
+              onChange={setEndDate}
+            />
+          </CardContent>
+        </Card>
 
-          {/* Cards de métricas */}
-          <Grid item xs={12} md={6}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Comandas Ativas
-                </Typography>
-                <Typography variant="h4">
-                  {dashboardData.comandas_ativas}
-                </Typography>
-              </CardContent>
-            </Card>
+        {/* Stats Overview */}
+        <Grid container spacing={2}>
+          <Grid xs={12} md={3}>
+            <StatCard 
+              title="Vendas Totais" 
+              value="R$ 95.000" 
+              trend="up" 
+              percent={12}
+            />
           </Grid>
-
-          <Grid item xs={12} md={6}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Total de Vendas no Período
-                </Typography>
-                <Typography variant="h4">
-                  {formatCurrency(dashboardData.vendas_periodo)}
-                </Typography>
-              </CardContent>
-            </Card>
+          <Grid xs={12} md={3}>
+            <StatCard 
+              title="Comandas Ativas" 
+              value="23" 
+              trend="up" 
+              percent={8}
+            />
           </Grid>
-
-          {/* Gráfico de vendas por categoria */}
-          <Grid item xs={12} md={6}>
-            <Paper sx={{ p: 2 }}>
-              <Typography variant="h6" gutterBottom>
-                Vendas por Categoria
-              </Typography>
-              <Box sx={{ height: 300 }}>
-                <ResponsiveContainer>
-                  <BarChart data={dashboardData.vendas_por_categoria}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="item__categoria__nome" />
-                    <YAxis />
-                    <Tooltip formatter={(value) => formatCurrency(value)} />
-                    <Legend />
-                    <Bar dataKey="total_vendas" fill="#1976d2" name="Total de Vendas" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </Box>
-            </Paper>
+          <Grid xs={12} md={3}>
+            <StatCard 
+              title="Ticket Médio" 
+              value="R$ 180" 
+              trend="up" 
+              percent={5}
+            />
           </Grid>
-
-          {/* Gráfico de vendas por hora */}
-          <Grid item xs={12} md={6}>
-            <Paper sx={{ p: 2 }}>
-              <Typography variant="h6" gutterBottom>
-                Vendas por Hora (Últimas 24h)
-              </Typography>
-              <Box sx={{ height: 300 }}>
-                <ResponsiveContainer>
-                  <LineChart data={dashboardData.vendas_por_hora}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="hora" />
-                    <YAxis />
-                    <Tooltip formatter={(value) => formatCurrency(value)} />
-                    <Legend />
-                    <Line 
-                      type="monotone" 
-                      dataKey="total" 
-                      stroke="#1976d2" 
-                      name="Total de Vendas" 
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </Box>
-            </Paper>
-          </Grid>
-
-          {/* Tabela de itens mais vendidos */}
-          <Grid item xs={12}>
-            <Paper sx={{ p: 2 }}>
-              <Typography variant="h6" gutterBottom>
-                Itens Mais Vendidos
-              </Typography>
-              <Box sx={{ mt: 2 }}>
-                <Grid container spacing={2}>
-                  <Grid item xs={4}>
-                    <Typography variant="subtitle2">Item</Typography>
-                  </Grid>
-                  <Grid item xs={4}>
-                    <Typography variant="subtitle2">Quantidade</Typography>
-                  </Grid>
-                  <Grid item xs={4}>
-                    <Typography variant="subtitle2">Receita</Typography>
-                  </Grid>
-                </Grid>
-                {dashboardData.itens_mais_vendidos.map((item, index) => (
-                  <Grid container spacing={2} key={index} sx={{ mt: 1 }}>
-                    <Grid item xs={4}>
-                      <Typography>{item.item__nome}</Typography>
-                    </Grid>
-                    <Grid item xs={4}>
-                      <Typography>{item.total_vendido}</Typography>
-                    </Grid>
-                    <Grid item xs={4}>
-                      <Typography>{formatCurrency(item.receita_total)}</Typography>
-                    </Grid>
-                  </Grid>
-                ))}
-              </Box>
-            </Paper>
+          <Grid xs={12} md={3}>
+            <StatCard 
+              title="Total de Pedidos" 
+              value="528" 
+              trend="down" 
+              percent={3}
+            />
           </Grid>
         </Grid>
-      </Box>
+
+        {/* Charts */}
+        <Grid container spacing={2}>
+          <Grid xs={12} md={8}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Vendas por Período
+                </Typography>
+                <div style={{ height: 300 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={salesData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis />
+                      <Tooltip />
+                      <Line 
+                        type="monotone" 
+                        dataKey="sales" 
+                        stroke="#1976d2" 
+                        name="Vendas (R$)"
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid xs={12} md={4}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Vendas por Categoria
+                </Typography>
+                <div style={{ height: 300 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={categoryData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="value" fill="#1976d2" name="Vendas (R$)" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+
+        {/* Top Items Table */}
+        <Card>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              Itens Mais Vendidos
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid xs={4}>
+                <Typography variant="subtitle2">Item</Typography>
+              </Grid>
+              <Grid xs={4}>
+                <Typography variant="subtitle2">Quantidade</Typography>
+              </Grid>
+              <Grid xs={4}>
+                <Typography variant="subtitle2">Receita</Typography>
+              </Grid>
+            </Grid>
+            {[
+              { name: 'Picanha', qty: 145, revenue: 'R$ 8.700' },
+              { name: 'Cerveja', qty: 320, revenue: 'R$ 4.800' },
+              { name: 'Camarão', qty: 98, revenue: 'R$ 4.410' },
+              { name: 'Vinho', qty: 56, revenue: 'R$ 3.920' },
+              { name: 'Sobremesas', qty: 167, revenue: 'R$ 2.505' }
+            ].map((item, index) => (
+              <Grid container spacing={2} key={index} sx={{ mt: 1 }}>
+                <Grid xs={4}>
+                  <Typography>{item.name}</Typography>
+                </Grid>
+                <Grid xs={4}>
+                  <Typography>{item.qty}</Typography>
+                </Grid>
+                <Grid xs={4}>
+                  <Typography>{item.revenue}</Typography>
+                </Grid>
+              </Grid>
+            ))}
+          </CardContent>
+        </Card>
+      </Stack>
     </LocalizationProvider>
   );
 };
 
-export default Dashboard;
+export default RestaurantDashboard;

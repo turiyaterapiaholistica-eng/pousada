@@ -1,15 +1,14 @@
-
 # Exit on error
 set -o errexit
 
-# Install python dependencies
+# Install Python dependencies
 pip install -r requirements.txt
 
-# Navigate to backend directory
-cd backend
+# Install frontend dependencies and build
+cd frontend
+npm install
+npm run build
 
-# Collect static files
+cd ..
 python manage.py collectstatic --no-input
-
-# Run migrations
 python manage.py migrate

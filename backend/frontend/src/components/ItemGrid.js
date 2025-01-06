@@ -1,34 +1,24 @@
 import React from 'react';
-import { Card, CardMedia, CardContent, CardActions, Typography, Button, IconButton, Box } from '@mui/material';
+import { Card, CardMedia, CardContent, CardActions, Typography, Button, IconButton, Box, Skeleton } from '@mui/material';
 import Grid from '@mui/material/Grid2';
 import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 
 const ItemImage = ({ item }) => {
-  const isPNG = item.imagem?.toLowerCase().endsWith('.png');
-  
   if (!item.imagem) {
-    return (
-      <Typography color="text.secondary">
-        Imagem não disponível
-      </Typography>
-    );
+    return <Typography color="text.secondary">Imagem não disponível</Typography>;
   }
-
-  const imageUrl = item.imagem.startsWith('http') 
-    ? item.imagem 
-    : `/media/${item.imagem}`;
 
   return (
     <img
-      src={imageUrl}
+      src={item.imagem} // Cloudinary URL is provided directly
       alt={item.nome}
       style={{
         width: '100%',
         height: '100%',
         objectFit: 'cover',
-        ...(isPNG && {
+        ...(item.imagem?.toLowerCase().endsWith('.png') && {
           objectFit: 'contain',
           padding: '8px',
           backgroundColor: 'white'
@@ -38,110 +28,122 @@ const ItemImage = ({ item }) => {
   );
 };
 
-const ItemGrid = ({ items, handleQuantidadeChange, quantidades, adicionarAoCarrinho, renderPreco }) => {
+const ItemGrid = ({ items, handleQuantidadeChange, quantidades, adicionarAoCarrinho, renderPreco, isLoading = false }) => {
   return (
     <Grid container spacing={3} sx={{ mt: 2, justifyContent: 'center' }}>
       {items.map(item => (
+
         <Grid xs={12} sm={6} md={4} key={item.id}>
-          <Card sx={{ 
-            height: { xs: 'auto', sm: '300px' },
-            display: 'flex', 
-            flexDirection: 'column',
-            width: { sm: '230px' },
-            mx: 'auto'
-          }}>
-            <CardMedia
-              component="div"
-              sx={{
-                height: 140,
-                bgcolor: 'grey.100',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
-              <ItemImage item={item} />
-            </CardMedia>
-            
-            <CardContent sx={{ flexGrow: 1, pb: 1 }}>
-              <Typography gutterBottom fontSize={20} ariant="h6" component="h2" sx={{ mb: 1, textWrap:'nowrap', overflow:'hidden' }}>
-                {item.nome}
-              </Typography>
-              <Typography 
-                color="text.secondary" 
-                variant="body2" 
-                sx={{ 
-                  mb: 2,
-                  display: '-webkit-box',
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: 'vertical',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  lineHeight: 1.3
-                }}
-              >
-                {item.descricao}
-              </Typography>
-              <Box sx={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'space-between',
-                gap: 2
-              }}>
-                <Box sx={{ flexGrow: 1 }}>
-                  {renderPreco(item)}
-                </Box>
-                <Box sx={{ 
+          
+          {isLoading ? (
+            <Box sx={{ width:'230px' }}>
+              <Skeleton variant="rectangular" height={200} />
+              <Skeleton variant="text" sx={{ mt: 1 }} />
+              <Skeleton variant="text" width="60%" />
+            </Box>
+          ) : (
+            <Card sx={{ 
+              height: { xs: 'auto', sm: '300px' },
+              display: 'flex', 
+              flexDirection: 'column',
+              width: { sm: '230px' },
+              mx: 'auto'
+            }}>
+              <CardMedia
+                component="div"
+                sx={{
+                  height: 140,
+                  bgcolor: 'grey.100',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 0.5
-                }}>
-                <Typography align="center" sx={{ lineHeight: 1 }}>
-                    {quantidades[item.id] || 1}
+                  justifyContent: 'center'
+                }}
+              >
+                <ItemImage item={item} />
+              </CardMedia>
+              
+              <CardContent sx={{ flexGrow: 1, pb: 1 }}>
+                <Typography gutterBottom fontSize={20} ariant="h6" component="h2" sx={{ mb: 1, textWrap:'nowrap', overflow:'hidden' }}>
+                  {item.nome}
                 </Typography>
-
-                  <Box sx={{ 
-                    display: 'flex', 
-                    flexDirection: 'column',
-                    mr: 1
-                  }}>       
-
-                    <IconButton 
-                      size="small" 
-                      sx={{ p: 0 }}
-                      onClick={() => handleQuantidadeChange(item.id, 1)}
-                    >
-                      <ArrowDropUpIcon />
-                    </IconButton>
-                    
-                    <IconButton 
-                      size="small"
-                      sx={{ p: 0 }}
-                      onClick={() => handleQuantidadeChange(item.id, -1)}
-                    >
-                      <ArrowDropDownIcon />
-                    </IconButton>
-
+                <Typography 
+                  color="text.secondary" 
+                  variant="body2" 
+                  sx={{ 
+                    mb: 2,
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    lineHeight: 1.3
+                  }}
+                >
+                  {item.descricao}
+                </Typography>
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between',
+                  gap: 2
+                }}>
+                  <Box sx={{ flexGrow: 1 }}>
+                    {renderPreco(item)}
                   </Box>
-
-                  <IconButton
-                    color="primary"
-                    onClick={() => adicionarAoCarrinho(item)}
-                    sx={{ 
-                        backgroundColor: 'primary.main',
-                        color: 'white',
-                        '&:hover': {
-                          backgroundColor: 'primary.dark',
-                        }
-                    }}
-                  >
-                    <ShoppingCartIcon />
-                  </IconButton>
-      
+                  <Box sx={{ 
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5
+                  }}>
+                  <Typography align="center" sx={{ lineHeight: 1 }}>
+                      {quantidades[item.id] || 1}
+                  </Typography>
+  
+                    <Box sx={{ 
+                      display: 'flex', 
+                      flexDirection: 'column',
+                      mr: 1
+                    }}>       
+  
+                      <IconButton 
+                        size="small" 
+                        sx={{ p: 0 }}
+                        onClick={() => handleQuantidadeChange(item.id, 1)}
+                      >
+                        <ArrowDropUpIcon />
+                      </IconButton>
+                      
+                      <IconButton 
+                        size="small"
+                        sx={{ p: 0 }}
+                        onClick={() => handleQuantidadeChange(item.id, -1)}
+                      >
+                        <ArrowDropDownIcon />
+                      </IconButton>
+  
+                    </Box>
+  
+                    <IconButton
+                      color="primary"
+                      onClick={() => adicionarAoCarrinho(item)}
+                      sx={{ 
+                          backgroundColor: 'primary.main',
+                          color: 'white',
+                          '&:hover': {
+                            backgroundColor: 'primary.dark',
+                          }
+                      }}
+                    >
+                      <ShoppingCartIcon />
+                    </IconButton>
+        
+                  </Box>
                 </Box>
-              </Box>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}     
+
+
         </Grid>
       ))}
     </Grid>

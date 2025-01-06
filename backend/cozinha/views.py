@@ -21,8 +21,11 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
+from .services import generate_signature
 
-def index(request, *args, **kwargs):
+
+
+def index(request, path=''):
     return render(request, 'frontend/index.html')
 
 @ensure_csrf_cookie
@@ -77,6 +80,26 @@ class ItemCardapioViewSet(viewsets.ModelViewSet):
         instance.ativo = False
         instance.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
+    
+    @action(detail=True, methods=['POST'])
+    def upload_image(self, request, pk=None):
+        instance = self.get_object()
+        try:
+            data = json.loads(request.body)
+            instance.imagem = data.get('secure_url')  # Get Cloudinary secure URL
+            instance.save()
+            return Response({'status': 'success', 'url': instance.imagem}, status=201)
+        except Exception as e:
+            return Response({'error': str(e)}, status=400)
+
+
+    @action(detail=False, methods=['GET'])
+    def upload_params(self, request):
+        try:
+            params = generate_signature()
+            return Response(params)
+        except Exception as e:
+            return Response({'error': str(e)}, status=500)
 
 class ConsumacaoViewSet(viewsets.ModelViewSet):
     queryset = Consumacao.objects.prefetch_related(
@@ -347,6 +370,8 @@ class PagamentoViewSet(viewsets.ModelViewSet):
     
 @action(detail=False, methods=['POST'])
 def authenticate(self, request):
+
+    
     code = request.data.get('code')
     password = request.data.get('password')
     try:
@@ -361,3 +386,14 @@ def authenticate(self, request):
             {'error': 'Invalid credentials'}, 
             status=status.HTTP_401_UNAUTHORIZED
         )
+    
+@action(detail=True, methods=['PATCH'])
+def update(self, request, *args, **kwargs):
+    instance = self.get_object()
+    
+    if 'imagem' in request.FILES:
+        instance.imagem = request.FILES['imagem']
+        instance.save()
+        
+    serializer = self.get_serializer(instance)
+    return Response(serializer.data)
