@@ -11,7 +11,7 @@ def create_superuser(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ('cozinha', 'previous_migration'),  # Update this
+        ('cozinha', '0011_create_superuser'),  # Update this
     ]
 
     operations = [
