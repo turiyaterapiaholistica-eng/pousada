@@ -2,7 +2,7 @@ import React from 'react';
 import {
   Paper, Button, Typography, TextField, MenuItem, Box,
   Chip, FormControlLabel, Checkbox, InputLabel, FormControl, 
-  Select, IconButton, Divider
+  Select, IconButton, Divider, List, ListItem, ListItemText
 } from '@mui/material';
 import Grid from '@mui/material/Grid2';
 import SearchIcon from '@mui/icons-material/Search';
@@ -182,6 +182,22 @@ const ComandasHeader = ({
                       ))}
                     </Select>
                   </FormControl>
+                  {/* New status field */}
+                  <FormControl size="small" sx={{ width: '120px' }}>
+                    <InputLabel>Status</InputLabel>
+                    <Select
+                      value={editedData.status}
+                      onChange={(e) => setEditedData(prev => ({
+                        ...prev,
+                        status: e.target.value
+                      }))}
+                      label="Status"
+                    >
+                      {STATUS_OPTIONS.map(status => (
+                        <MenuItem key={status.value} value={status.value}>{status.label}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
                   <Box sx={{ display: 'flex', gap: 1 }}>
                     <IconButton onClick={handleSaveEdit} size="small" color="primary">
                       <SaveIcon fontSize="small" />
@@ -194,49 +210,95 @@ const ComandasHeader = ({
                 
               ) : (
 
-                <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%', justifyContent:'space-between'}}>
-
-                    {selectedComanda ? (
-                      <>
-                        <Box>
-                        <Typography variant="h6">{selectedComanda?.quarto}</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {selectedComanda?.nome_cliente || 'Sem nome'}
-                        </Typography>
-                        </Box>
-                        <Chip 
-                          label={selectedComanda?.tipo_cliente?.charAt(0).toUpperCase() + selectedComanda?.tipo_cliente?.slice(1)}
-                          size="small"
-                          color={selectedComanda?.tipo_cliente === 'funcionario' ? "info" : "default"}
-                        />
-                      </>
-                    ) : (
-                      <>
-                        <Box>
-                        <Typography variant="h6">Selecione uma comanda</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Sem nome
-                        </Typography>
-                        </Box>
-                        {/* <Chip 
-                          label={selectedComanda?.tipo_cliente?.charAt(0).toUpperCase() + selectedComanda?.tipo_cliente?.slice(1)}
-                          size="small"
-                          color={selectedComanda?.tipo_cliente === 'funcionario' ? "info" : "default"}
-                        /> */}
-                      </>
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', width: '100%', justifyContent: 'space-between' }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      {selectedComanda ? (
+                        <>
+                          <Box>
+                            <Typography variant="h6">{selectedComanda?.quarto}</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {selectedComanda?.nome_cliente || 'Sem nome'}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Chip 
+                              label={selectedComanda?.tipo_cliente?.charAt(0).toUpperCase() + selectedComanda?.tipo_cliente?.slice(1)}
+                              size="small"
+                              color={selectedComanda?.tipo_cliente === 'funcionario' ? "info" : "default"}
+                            />
+                            <Chip 
+                              label={selectedComanda?.status?.charAt(0).toUpperCase() + selectedComanda?.status?.slice(1)}
+                              size="small"
+                              color={
+                                selectedComanda?.status === 'aberto' ? "success" : 
+                                selectedComanda?.status === 'pago' ? "default" :
+                                "warning"
+                              }
+                            />
+                          </Box>
+                        </>
+                      ) : (
+                        <>
+                          <Box>
+                            <Typography variant="h6">Selecione uma comanda</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              Sem nome
+                            </Typography>
+                          </Box>
+                        </>
+                      )}
+                    </Box>
+                    
+                    {/* Itens da comanda */}
+                    {selectedComanda && selectedComanda.itens && (
+                      <Box 
+                        sx={{ 
+                          mt: 1, 
+                          maxHeight: '150px', 
+                          overflow: 'auto',
+                          border: '1px solid',
+                          borderColor: 'divider',
+                          borderRadius: 1
+                        }}
+                      >
+                        <List dense disablePadding>
+                          {selectedComanda.itens.map((item, idx) => (
+                            <ListItem 
+                              key={idx} 
+                              divider={idx < selectedComanda.itens.length - 1}
+                              sx={{ py: 0.5 }}
+                            >
+                              <ListItemText
+                                primary={
+                                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <Typography variant="body2">
+                                      {item.item.nome}
+                                    </Typography>
+                                    <Typography variant="body2">
+                                      {item.quantidade}x {formatMoney(item.item.preco)}
+                                    </Typography>
+                                  </Box>
+                                }
+                              />
+                            </ListItem>
+                          ))}
+                        </List>
+                      </Box>
                     )}
                   </Box>
+                  
                   <IconButton onClick={() => {
                     if (selectedComanda) {
                       handleStartEdit();
                       setEditedData({
                         nome_cliente: selectedComanda.nome_cliente || '',
                         quarto: selectedComanda.quarto || '',
-                        tipo_cliente: selectedComanda.tipo_cliente || 'cliente'
+                        tipo_cliente: selectedComanda.tipo_cliente || 'cliente',
+                        status: selectedComanda.status || 'aberto'
                       });
                     }
-                  }} disabled={!selectedComanda}>
+                  }} disabled={!selectedComanda} sx={{ alignSelf: 'flex-start' }}>
                     <EditIcon />
                   </IconButton>
                 </Box>
@@ -262,8 +324,8 @@ const ComandasHeader = ({
                     <InputLabel>Forma de pagamento</InputLabel>
                     <Select
                       value={paymentMethod}
-                      label="Forma de pagamento"
                       onChange={(e) => setPaymentMethod(e.target.value)}
+                      label="Forma de pagamento"
                     >
                       {PAYMENT_METHOD.map(method => (
                         <MenuItem key={method} value={method}>{method}</MenuItem>

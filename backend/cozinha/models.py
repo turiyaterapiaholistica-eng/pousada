@@ -41,7 +41,7 @@ class ItemCardapio(models.Model):
     preco_custo = models.DecimalField(max_digits=10, decimal_places=2, null=True)
     categoria = models.ForeignKey(Categoria, on_delete=models.SET_NULL, null=True)
     disponivel = models.BooleanField(default=True)
-    imagem = models.URLField(max_length=500, null=True, blank=True)
+    imagem = models.FileField(upload_to='items/', null=True, blank=True)    
     
     def __str__(self):
         return f"{self.nome} - {self.categoria}"

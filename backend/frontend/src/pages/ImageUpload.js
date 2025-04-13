@@ -15,59 +15,10 @@ const ImageUpload = () => {
   const [loading, setLoading] = useState(false);
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState('');
-  const [uploadParams, setUploadParams] = useState(null);
-
 
   useEffect(() => {
     fetchCategories();
-    fetchUploadParams();
   }, []);
-
-  const fetchUploadParams = async () => {
-    try {
-      const response = await api.get('/itens/upload_params/');
-      setUploadParams(response);
-    } catch (error) {
-      console.error('Error fetching upload params:', error);
-    }
-  };
-
-  const handleUpload = async () => {
-    if (!file || !selectedItem) return;
-    setLoading(true);
-  
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('signature', uploadParams.signature);
-      formData.append('api_key', uploadParams.api_key);
-      formData.append('timestamp', uploadParams.timestamp);
-  
-      const response = await fetch(uploadParams.upload_url, {
-        method: 'POST',
-        body: formData
-      });
-  
-      if (response.ok) {
-        const cloudinaryData = await response.json();
-        
-        // Save Cloudinary secure URL to database
-        await api.post(`/itens/${selectedItem}/upload_image/`, cloudinaryData, {
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        setFile(null);
-        setPreview('');
-        setSelectedItem('');
-      }
-    } catch (error) {
-      console.error('Error uploading image:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
     if (selectedCategory) {
@@ -99,7 +50,34 @@ const ImageUpload = () => {
     setPreview(URL.createObjectURL(file));
   };
 
+  const handleUpload = async () => {
+    if (!file || !selectedItem) return;
+    setLoading(true);
   
+    try {
+      const formData = new FormData();
+      formData.append('imagem', file);
+  
+      // Direct upload to the backend
+      const response = await api.post(`/itens/${selectedItem}/upload_image/`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      
+      if (response.status === 'success') {
+        // Clear form after successful upload
+        setFile(null);
+        setPreview('');
+        setSelectedItem('');
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h5" sx={{ mb: 3 }}>

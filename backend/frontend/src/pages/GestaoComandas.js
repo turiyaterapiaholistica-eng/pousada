@@ -29,9 +29,10 @@ export default function GestaoComandas() {
   });
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState({
-    nome: '',
+    nome_cliente: '',
     quarto: '',
-    isBusinessWorker: false
+    tipo_cliente: '',
+    status: ''
   });
   const [detailsComanda, setDetailsComanda] = useState(null);  // New state for details
   const [searchQuarto, setSearchQuarto] = useState('');
@@ -46,10 +47,6 @@ export default function GestaoComandas() {
 
   // Tipos de cliente
   const [selectedCustomerTypes, setSelectedCustomerTypes] = useState(['funcionario', 'cliente', 'hospede']);
-
-
-
-
 
 
   // Funções criadas
@@ -168,7 +165,7 @@ export default function GestaoComandas() {
 
       await fetchComandas();
       const updatedComanda = await api.get(`/consumacoes/${selectedComanda.id}/`);
-      setSelectedComanda(updatedComanda.data);
+      setSelectedComanda(updatedComanda);
       setPaymentAmount('');
       setPaymentMethod('');
       showSnackbar('Pagamento registrado com sucesso!');
@@ -190,8 +187,15 @@ export default function GestaoComandas() {
     try {
       await api.patch(`/consumacoes/${selectedComanda.id}/`, updates);
       showSnackbar('Comanda atualizada com sucesso!');
+      
+      // Update the selected comanda locally to reflect changes immediately
+      const updatedComanda = await api.get(`/consumacoes/${selectedComanda.id}/`);
+      setSelectedComanda(updatedComanda);
+      
+      // Refresh the list of comandas
       fetchComandas();
     } catch (error) {
+      console.error('Error updating comanda:', error);
       showSnackbar('Erro ao atualizar comanda', 'error');
     }
   };
@@ -220,9 +224,10 @@ export default function GestaoComandas() {
   const handleStartEdit = () => {
     setIsEditing(true);
     setEditedData({
-      nome: selectedComanda.nome,
-      quarto: selectedComanda.quarto,
-      isBusinessWorker: selectedComanda.isBusinessWorker
+      nome_cliente: selectedComanda.nome_cliente || '',
+      quarto: selectedComanda.quarto || '',
+      tipo_cliente: selectedComanda.tipo_cliente || 'cliente',
+      status: selectedComanda.status || 'aberto'
     });
   };
 
@@ -231,7 +236,8 @@ export default function GestaoComandas() {
       await handleUpdateComanda({
         nome_cliente: editedData.nome_cliente,
         quarto: editedData.quarto,
-        tipo_cliente: editedData.tipo_cliente
+        tipo_cliente: editedData.tipo_cliente,
+        status: editedData.status
       });
       setIsEditing(false);
     } catch (error) {
@@ -242,9 +248,10 @@ export default function GestaoComandas() {
   const handleCancelEdit = () => {
     setIsEditing(false);
     setEditedData({
-      nome: selectedComanda.nome,
-      quarto: selectedComanda.quarto,
-      isBusinessWorker: selectedComanda.isBusinessWorker
+      nome_cliente: selectedComanda?.nome_cliente || '',
+      quarto: selectedComanda?.quarto || '',
+      tipo_cliente: selectedComanda?.tipo_cliente || 'cliente',
+      status: selectedComanda?.status || 'aberto'
     });
   };
 
@@ -264,10 +271,6 @@ export default function GestaoComandas() {
         : [...prev, type]
     );
   };
-
-
-
-  
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column' }}>

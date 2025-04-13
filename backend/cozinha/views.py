@@ -85,13 +85,20 @@ class ItemCardapioViewSet(viewsets.ModelViewSet):
     def upload_image(self, request, pk=None):
         instance = self.get_object()
         try:
-            data = json.loads(request.body)
-            instance.imagem = data.get('secure_url')  # Get Cloudinary secure URL
-            instance.save()
-            return Response({'status': 'success', 'url': instance.imagem}, status=201)
+            if 'imagem' in request.FILES:
+                file_obj = request.FILES['imagem']
+                # Save the file path directly to the model
+                instance.imagem = file_obj
+                instance.save()
+                
+                return Response({
+                    'status': 'success',
+                    'url': instance.imagem.url if instance.imagem else None
+                }, status=201)
+            else:
+                return Response({'error': 'No image file provided'}, status=400)
         except Exception as e:
             return Response({'error': str(e)}, status=400)
-
 
     @action(detail=False, methods=['GET'])
     def upload_params(self, request):

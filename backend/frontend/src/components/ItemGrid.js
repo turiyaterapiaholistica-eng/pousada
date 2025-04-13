@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardMedia, CardContent, CardActions, Typography, Button, IconButton, Box, Skeleton } from '@mui/material';
 import Grid from '@mui/material/Grid2';
 import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
@@ -6,23 +6,45 @@ import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 
 const ItemImage = ({ item }) => {
-  if (!item.imagem) {
-    return <Typography color="text.secondary">Imagem não disponível</Typography>;
+  const [imageError, setImageError] = useState(false);
+  
+  if (!item.imagem || imageError) {
+    return (
+      <Box sx={{ 
+        height: '100%', 
+        display: 'flex', 
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'grey.100'
+      }}>
+        <Typography color="text.secondary">Imagem não disponível</Typography>
+      </Box>
+    );
   }
 
+  // The problem might be that we're getting the full URL back from the API
+  // Let's handle both relative paths and full URLs
+  const imgSrc = item.imagem.startsWith('http') 
+    ? item.imagem // Keep full URLs as is
+    : `/static/images/${item.imagem.split('/').pop()}`; // Use last part of path for relative URLs
+  
   return (
     <img
-      src={item.imagem} // Cloudinary URL is provided directly
+      src={imgSrc}
       alt={item.nome}
       style={{
         width: '100%',
         height: '100%',
         objectFit: 'cover',
-        ...(item.imagem?.toLowerCase().endsWith('.png') && {
+        ...(imgSrc.toLowerCase().endsWith('.png') && {
           objectFit: 'contain',
           padding: '8px',
           backgroundColor: 'white'
         })
+      }}
+      onError={(e) => {
+        console.error('Image load error:', imgSrc);
+        setImageError(true);
       }}
     />
   );

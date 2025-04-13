@@ -146,7 +146,7 @@ const CartSidebar = ({
                     }}
                   >
                     <Avatar
-                      src={item.imagem ? `/media/${item.imagem}` : ''}
+                      src={item.imagem ? (item.imagem.startsWith('http') ? item.imagem : `/media/${item.imagem}`) : ''}
                       sx={{ 
                         width: 56, 
                         height: 56,

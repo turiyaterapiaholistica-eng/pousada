@@ -1,21 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box, Card, CardMedia, CardContent, CardActions, Typography, Button, 
-  Dialog, DialogTitle, DialogContent, DialogActions, TextField, IconButton, 
-  Drawer, List, ListItem, ListItemText, Divider, Badge, Snackbar, Alert,
-  FormControlLabel, Checkbox, MenuItem
+  Box, Snackbar, Alert, FormControlLabel, Checkbox, MenuItem, TextField, Typography
 } from '@mui/material';
 import Grid from '@mui/material/Grid2';
-import AddIcon from '@mui/icons-material/Add';
-import RemoveIcon from '@mui/icons-material/Remove';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import DeleteIcon from '@mui/icons-material/Delete';
-import CategoryTabs from '../components/CategoryTabs';
 import api from '../services/api';
 import CartSidebar from '../components/CartSidebar';  
 import ItemGrid from '../components/ItemGrid';  
-
+import CategoryTabs from '../components/CategoryTabs';
+import CheckoutDialog from '../components/CheckoutDialog'; // Import the new component
 
 export default function Consumacao() {
   const [categorias, setCategorias] = useState([]);
@@ -37,10 +29,24 @@ export default function Consumacao() {
 
   // Busca informações sobre as comandas
   const [comandasAbertas, setComandasAbertas] = useState([]);
-  const [selectedComanda, setSelectedComanda] = useState('');
+  const [selectedComanda, setSelectedComanda] = useState(null);
 
   const [isLoading, setIsLoading] = useState(true);
 
+  // Function to fetch open commands
+  const fetchComandas = async () => {
+    try {
+      const comandasRes = await api.get('/consumacoes/?status=aberto');
+      if (Array.isArray(comandasRes)) {
+        setComandasAbertas(comandasRes);
+      } else {
+        console.error('Unexpected comandas response format:', comandasRes);
+      }
+    } catch (error) {
+      console.error('Error fetching comandas:', error);
+      showSnackbar('Erro ao carregar comandas', 'error');
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -53,7 +59,7 @@ export default function Consumacao() {
           console.log('Raw categorias response:', categoriasRes);
           // Check if we have data and it's an array
           if (Array.isArray(categoriasRes)) {
-            categoriasData = categoriasRes;  // Remove .data
+            categoriasData = categoriasRes;
             setCategorias(categoriasData);
             
             // Find and set the first main category
@@ -79,7 +85,7 @@ export default function Consumacao() {
           console.log('Raw items response:', itensRes);
           // Check if we have data and it's an array
           if (Array.isArray(itensRes)) {
-            const itensData = itensRes;  // Remove .data
+            const itensData = itensRes;
             console.log('Setting items:', itensData.length);
             setItens(itensData);
             
@@ -98,28 +104,7 @@ export default function Consumacao() {
         }
   
         // Fetch comandas
-        try {
-          const comandasRes = await api.get('/consumacoes/?status=aberto');
-          console.log('Raw comandas response:', comandasRes);
-          if (Array.isArray(comandasRes)) {
-            setComandasAbertas(comandasRes);  // Remove .data
-            
-            // If there's a selected comanda, update worker status
-            if (selectedComanda) {
-              const selectedComandaData = comandasRes.find(
-                c => c.id === selectedComanda
-              );
-              if (selectedComandaData) {
-                setIsBusinessWorker(selectedComandaData.isBusinessWorker);
-              }
-            }
-          } else {
-            console.error('Unexpected comandas response format:', comandasRes);
-          }
-        } catch (error) {
-          console.error('Error fetching comandas:', error);
-          showSnackbar('Erro ao carregar comandas', 'error');
-        }
+        await fetchComandas();
   
       } catch (error) {
         console.error('Error in fetchData:', error);
@@ -130,7 +115,7 @@ export default function Consumacao() {
     };
   
     fetchData();
-  }, [selectedComanda]);
+  }, []);
 
   // Function to get the effective price based on worker status
   const getEffectivePrice = (item) => {
@@ -150,19 +135,18 @@ export default function Consumacao() {
     return '-';
   };
 
-  const handleComandaChange = (e) => {
-    const comandaId = e.target.value;
+  const handleComandaChange = (comandaId) => {
     setSelectedComanda(comandaId);
     
     if (comandaId && Array.isArray(comandasAbertas)) {
       const comanda = comandasAbertas.find(c => c.id === comandaId);
       if (comanda) {
         setQuarto(comanda.quarto);
-        setIsBusinessWorker(comanda.isBusinessWorker);
+        setIsBusinessWorker(comanda.tipo_cliente === 'funcionario');
         
         // Update cart prices
         setCarrinho(prevCarrinho => prevCarrinho.map(item => {
-          const newPreco = comanda.isBusinessWorker && item.preco_custo != null 
+          const newPreco = comanda.tipo_cliente === 'funcionario' && item.preco_custo != null 
             ? item.preco_custo 
             : item.preco;
           
@@ -223,23 +207,18 @@ export default function Consumacao() {
     });
       
     return itens.filter(item => {
-      console.log('Filtering item:', item);
-      
       // First filter by availability if checkbox is checked
       if (showOnlyAvailable && !item.disponivel) {
-        console.log('Item filtered out due to availability:', item.nome);
         return false;
       }
   
       // If no main category is selected, show all items
       if (!selectedCategories.mainCategoryId) {
-        console.log('No main category selected, showing all items');
         return true;
       }
   
       // If a subcategory is selected, show only items from that subcategory
       if (selectedCategories.subCategoryId) {
-        console.log('Filtering by subcategory:', selectedCategories.subCategoryId);
         return item.categoria === selectedCategories.subCategoryId;
       }
   
@@ -249,29 +228,9 @@ export default function Consumacao() {
         item.categoria === selectedCategories.mainCategoryId || 
         itemCategory?.categoria_pai === selectedCategories.mainCategoryId
       );
-      console.log('Item category check:', {
-        item: item.nome,
-        result,
-        itemCategory: itemCategory?.nome
-      });
       return result;
     });
   };
-
-  useEffect(() => {
-    const filtered = getFilteredItems();
-    console.log('Selected Categories:', selectedCategories);
-    console.log('Filtered Items:', filtered);
-    console.log('Show Only Available:', showOnlyAvailable);
-    filtered.forEach(item => {
-      console.log('Item:', item.nome);
-      console.log('  Regular Price:', item.preco);
-      console.log('  Cost Price:', item.preco_custo);
-      console.log('  Effective Price:', getEffectivePrice(item));
-      console.log('  Is Available:', item.disponivel);
-    });
-  }, [selectedCategories, itens, showOnlyAvailable, isBusinessWorker]);
-  
 
   const handleQuantidadeChange = (itemId, delta) => {
     setQuantidades(prev => ({
@@ -294,36 +253,37 @@ export default function Consumacao() {
     }));
   };
 
-  const handleCheckout = async () => {
+  const handleCheckout = async (checkoutData) => {
     try {
-      if (!selectedComanda && !quarto) {
-        showSnackbar('Por favor selecione uma comanda ou informe o quarto', 'error');
-        return;
-      }
-  
-      let consumacaoId;
+      let consumacaoId = checkoutData.comandaId;
       
-      if (selectedComanda) {
-        consumacaoId = selectedComanda;
-      } else {
-        // Create new comanda only if none selected
+      // If no existing comanda is selected, create a new one
+      if (!consumacaoId) {
+        if (!checkoutData.quarto) {
+          showSnackbar('Por favor informe o quarto', 'error');
+          return;
+        }
+        
+        // Create new comanda
         const novaComandaRes = await api.post('/consumacoes/', {
-          quarto,
-          nome_cliente: '', // Could add a field for this
+          quarto: checkoutData.quarto,
+          nome_cliente: checkoutData.nomeCliente || '',
           status: 'aberto',
-          tipo_cliente: isBusinessWorker ? 'funcionario' : 'hospede'
+          tipo_cliente: checkoutData.isBusinessWorker ? 'funcionario' : 'hospede'
         });
+        
+        // Extract ID from the response
         consumacaoId = novaComandaRes.id;
       }
   
-      // Add all cart items in a single request
-      await api.post(`/consumacoes/${consumacaoId}/adicionar_item/`, {
-        items: carrinho.map(item => ({
+      // Add items one by one instead of batch
+      for (const item of carrinho) {
+        await api.post(`/consumacoes/${consumacaoId}/adicionar_item/`, {
           item_id: item.id,
           quantidade: item.quantidade,
-          observacao: item.observacao || ''
-        }))
-      });
+          observacao: item.observacao || checkoutData.observacao || ''
+        });
+      }
   
       setCarrinho([]);
       setCheckoutOpen(false);
@@ -359,33 +319,31 @@ export default function Consumacao() {
     
     return (
       <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-      <Typography variant="h6" color="primary">
-        {precoEfetivo === '-' ? (
-          <span>-</span>
-        ) : (
-          formatMoney(precoEfetivo)
-        )}
-      </Typography>
-      {isBusinessWorker && item.preco_custo != null && (
-        <Typography 
-          variant="caption" 
-          color="text.secondary" 
-          sx={{ 
-            mt: -0.5,
-            lineHeight: 1,
-            textWrap:'nowrap',
-            overflow:'visible',
-            fontSize:'9px'
-          }}
-        >
-          (Preço funcionário)
+        <Typography variant="h6" color="primary">
+          {precoEfetivo === '-' ? (
+            <span>-</span>
+          ) : (
+            formatMoney(precoEfetivo)
+          )}
         </Typography>
-      )}
-    </Box>
+        {isBusinessWorker && item.preco_custo != null && (
+          <Typography 
+            variant="caption" 
+            color="text.secondary" 
+            sx={{ 
+              mt: -0.5,
+              lineHeight: 1,
+              textWrap:'nowrap',
+              overflow:'visible',
+              fontSize:'9px'
+            }}
+          >
+            (Preço funcionário)
+          </Typography>
+        )}
+      </Box>
     );
   };
-
-
 
   return (
     <Box sx={{ display: 'flex' }}>
@@ -393,12 +351,10 @@ export default function Consumacao() {
         sx={{ 
           flexGrow: 1, 
           width: '90%',
-          // width: `calc(100% - ${drawerOpen ? drawerWidth : '50'}px)`,
           ml: 2,
         }}
       >
-
-        {/* Settings and order selection  */}
+        {/* Settings and order selection */}
         <Box 
           sx={{ 
             mb: 2,
@@ -406,8 +362,6 @@ export default function Consumacao() {
             justifyContent: 'space-between' 
           }}
         >
-
-          
           <Box>
             <FormControlLabel
               control={
@@ -417,7 +371,7 @@ export default function Consumacao() {
                     setIsBusinessWorker(e.target.checked);
                     // Clear selected comanda when changing worker status manually
                     if (!e.target.checked) {
-                      setSelectedComanda('');
+                      setSelectedComanda(null);
                     }
                   }}
                 />
@@ -439,8 +393,16 @@ export default function Consumacao() {
           <TextField
             select
             label="Comandas Abertas"
-            value={selectedComanda}
-            onChange={handleComandaChange}
+            value={selectedComanda ? selectedComanda.id : ''}
+            onChange={(e) => {
+              const comandaId = e.target.value;
+              if (comandaId) {
+                const comanda = comandasAbertas.find(c => c.id === comandaId);
+                setSelectedComanda(comanda || null);
+              } else {
+                setSelectedComanda(null);
+              }
+            }}
             sx={{ minWidth: 200 }}
           >
             <MenuItem value="">
@@ -452,7 +414,6 @@ export default function Consumacao() {
               </MenuItem>
             ))}
           </TextField>
-
         </Box>
         
         <CategoryTabs 
@@ -462,7 +423,6 @@ export default function Consumacao() {
         />
         
         {/* Cards with products */}
-
         <ItemGrid 
           items={getFilteredItems()}
           handleQuantidadeChange={handleQuantidadeChange}
@@ -471,12 +431,9 @@ export default function Consumacao() {
           renderPreco={renderPreco}
           isLoading={isLoading}
         />
-
-
       </Box>
 
       {/* Sidebar with itens list and total */}
-
       <CartSidebar 
         drawerWidth={drawerWidth}
         drawerOpen={drawerOpen}
@@ -490,41 +447,16 @@ export default function Consumacao() {
       />
 
       {/* Checkout dialog */}
-      <Dialog 
-        open={checkoutOpen} 
+      <CheckoutDialog
+        open={checkoutOpen}
         onClose={() => setCheckoutOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Finalizar Pedido</DialogTitle>
-        <DialogContent>
-          <TextField
-            fullWidth
-            label="Número do Quarto"
-            value={quarto}
-            onChange={(e) => setQuarto(e.target.value)}
-            margin="normal"
-          />
-          <TextField
-            fullWidth
-            label="Observações"
-            value={observacao}
-            onChange={(e) => setObservacao(e.target.value)}
-            multiline
-            rows={3}
-            margin="normal"
-          />
-          <Typography variant="h6" sx={{ mt: 2 }}>
-            Total: {formatMoney(totalCarrinho)}
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCheckoutOpen(false)}>Cancelar</Button>
-          <Button onClick={handleCheckout} variant="contained">
-            Confirmar Pedido
-          </Button>
-        </DialogActions>
-      </Dialog>
+        selectedComanda={selectedComanda}
+        comandasAbertas={comandasAbertas}
+        totalCarrinho={totalCarrinho}
+        formatMoney={formatMoney}
+        onCheckout={handleCheckout}
+        isBusinessWorker={isBusinessWorker}
+      />
 
       {/* Feedback snackbar */}
       <Snackbar
