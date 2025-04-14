@@ -22,9 +22,10 @@ class ItemCardapioSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ItemCardapio
-        fields = ['id', 'nome', 'descricao', 'preco', 'preco_custo', 'categoria', 
-                 'categoria_nome', 'categoria_pai_nome', 'disponivel', 'imagem']
-
+        fields = ['id', 'nome', 'descricao', 'preco', 'preco_custo', 'preco_compra', 
+                 'categoria', 'categoria_nome', 'categoria_pai_nome', 
+                 'disponivel', 'venda', 'imagem']
+        
 class ItemConsumacaoSerializer(serializers.ModelSerializer):
     item = ItemCardapioSerializer(read_only=True)
     
@@ -62,7 +63,6 @@ class ConsumacaoSerializer(serializers.ModelSerializer):
 
     def get_total(self, obj):
         return obj.total()
-    
 
 class PagamentoSerializer(serializers.ModelSerializer):
     class Meta:

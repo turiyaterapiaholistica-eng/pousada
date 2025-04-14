@@ -35,12 +35,14 @@ class Categoria(models.Model):
 
 class ItemCardapio(models.Model):
     nome = models.CharField(max_length=200)
-    descricao = models.TextField()
+    descricao = models.TextField(blank=True)
     ativo = models.BooleanField(default=True)
-    preco = models.DecimalField(max_digits=10, decimal_places=2)
-    preco_custo = models.DecimalField(max_digits=10, decimal_places=2, null=True)
+    preco = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    preco_custo = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    preco_compra = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     categoria = models.ForeignKey(Categoria, on_delete=models.SET_NULL, null=True)
     disponivel = models.BooleanField(default=True)
+    venda = models.BooleanField(default=True)  # True para itens de venda, False para apenas compra
     imagem = models.FileField(upload_to='items/', null=True, blank=True)    
     
     def __str__(self):
@@ -49,8 +51,7 @@ class ItemCardapio(models.Model):
     class Meta:
         verbose_name = 'Item do Cardápio'
         verbose_name_plural = 'Itens do Cardápio'
-        ordering = ['categoria__nome', 'nome']    
-
+        ordering = ['categoria__nome', 'nome']
 class Consumacao(models.Model):
     TIPO_CHOICES = [
         ('cliente', 'Cliente'),

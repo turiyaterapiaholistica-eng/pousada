@@ -13,7 +13,10 @@ import PublicMenu from './pages/PublicMenu';
 import ProtectedRoute from './components/ProtectedRoute';
 import ImageUpload from './pages/ImageUpload';
 import RestaurantDashboard from './pages/Dashboard';
-
+import ComprasPage from './pages/ComprasPage';
+import EstoquePage from './pages/EstoquePage';
+import AnalysisPage from './pages/AnalysisPage';
+import ItemManagementPage from './pages/ItemManagementPage'; // Importar nova página
 
 const theme = createTheme({
   palette: {
@@ -46,7 +49,10 @@ function App() {
               <Route path="comandas" element={<GestaoComandas />} />
               <Route path="/dashboard" element={<RestaurantDashboard />} />
               <Route path="images" element={<ImageUpload />} />
-
+              <Route path="compras" element={<ComprasPage />} />
+              <Route path="estoque" element={<EstoquePage />} />
+              <Route path="relatorios" element={<AnalysisPage />} />
+              <Route path="itens" element={<ItemManagementPage />} /> {/* Nova rota */}
             </Route>
             
             {/* Redirect unmatched routes to public menu */}
