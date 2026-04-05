@@ -62,8 +62,8 @@ class ItemCompra(models.Model):
     
     def save(self, *args, **kwargs):
         # Atualiza preço de custo no ItemCardapio
-        self.item.preco_custo = self.valor_unitario
-        self.item.save(update_fields=['preco_custo'])
+        self.item.preco_compra = self.valor_unitario
+        self.item.save(update_fields=['preco_compra'])
         
         # Salva o item
         super().save(*args, **kwargs)

@@ -46,6 +46,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     
     'cozinha.apps.CozinhaConfig',
+    'reservas.apps.ReservasConfig',
+    'voluntarios.apps.VoluntariosConfig',
     'rest_framework',
     'corsheaders',
 

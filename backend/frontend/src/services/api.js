@@ -1,99 +1,87 @@
 import axios from 'axios';
 
-const axiosInstance = axios.create({
-    baseURL: '/api',
-    withCredentials: true,
-    headers: {
-        'Content-Type': 'application/json',
-    },
-    xsrfCookieName: 'csrftoken',
-    xsrfHeaderName: 'X-CSRFToken',
+// Create axios instance with proper baseURL
+const api = axios.create({
+  baseURL: '/api', // Use only one /api prefix
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  xsrfCookieName: 'csrftoken',
+  xsrfHeaderName: 'X-CSRFToken',
 });
 
+// Add response interceptor for easier error handling
+api.interceptors.response.use(
+  (response) => response.data,
+  (error) => {
+    console.error('API Error:', error.response || error);
+    return Promise.reject(error);
+  }
+);
+
 const apiService = {
-    login: async (username, password) => {
-        const response = await axiosInstance.post('/auth/login/', { 
-            username, 
-            password 
-        });
-        return response.data;
-    },
+  // Authentication methods
+  login: async (username, password) => {
+    const response = await api.post('/auth/login/', { username, password });
+    return response;
+  },
 
-    logout: async () => {
-        const response = await axiosInstance.post('/auth/logout/');
-        return response.data;
-    },
+  logout: async () => {
+    const response = await api.post('/auth/logout/');
+    return response;
+  },
 
-    getCurrentUser: async () => {
-        try {
-            const response = await axiosInstance.get('/auth/user/');
-            return response.data;
-        } catch (error) {
-            return null;
-        }
-    },
-  // Base CRUD methods
+  getCurrentUser: async () => {
+    try {
+      const response = await api.get('/auth/user/');
+      return response;
+    } catch (error) {
+      return null;
+    }
+  },
+
+  // Room management methods
+  getRooms: async () => {
+    return await api.get('/quartos/');
+  },
+
+  getRoom: async (id) => {
+    return await api.get(`/quartos/${id}/`);
+  },
+
+  createRoom: async (roomData) => {
+    return await api.post('/quartos/', roomData);
+  },
+
+  updateRoom: async (id, roomData) => {
+    return await api.put(`/quartos/${id}/`, roomData);
+  },
+
+  deleteRoom: async (id) => {
+    return await api.delete(`/quartos/${id}/`);
+  },
+
+  // Generic CRUD methods
   get: async (url) => {
-    const response = await axiosInstance.get(url);
-    return response.data;
+    return await api.get(url);
   },
   
   post: async (url, data) => {
-    try {
-      const response = await axiosInstance.post(url, data);
-      return response.data;
-    } catch (error) {
-      console.error('API Error:', {
-        url,
-        data,
-        error: error.response?.data || error.message
-      });
-      throw error;
-    }
+    return await api.post(url, data);
   },
   
+  put: async (url, data) => {
+    return await api.put(url, data);
+  },
+
   patch: async (url, data) => {
-    const response = await axiosInstance.patch(url, data);
-    return response.data;
+    return await api.patch(url, data);
   },
   
   delete: async (url) => {
-    const response = await axiosInstance.delete(url);
-    return response.data;
+    return await api.delete(url);
   },
-  
-  // Payment related methods
-  payments: {
-    register: async (consumacaoId, paymentData) => {
-      try {
-        const response = await axiosInstance.post(
-          `/consumacoes/${consumacaoId}/registrar_pagamento/`,
-          {
-            valor: paymentData.amount,
-            forma_pagamento: paymentData.method,
-            observacao: paymentData.notes
-          }
-        );
-        return response.data;
-      } catch (error) {
-        if (error.response?.data) {
-          throw error;
-        }
-        throw new Error('Erro ao processar pagamento');
-      }
-    },
-
-    getHistory: async (consumacaoId) => {
-      try {
-        const response = await axiosInstance.get(
-          `/consumacoes/${consumacaoId}/pagamentos/`
-        );
-        return response.data;
-      } catch (error) {
-        throw error;
-      }
-    }
-  }
 };
 
 export default apiService;

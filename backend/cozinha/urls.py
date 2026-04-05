@@ -1,28 +1,26 @@
-from django.urls import path, include, re_path
-from rest_framework.routers import SimpleRouter
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from . import views
-from django.conf import settings
-from django.conf.urls.static import static
 
-# Importe as rotas de estoque
-from .urls_estoque import urlpatterns as estoque_urlpatterns
-
-router = SimpleRouter()
+# Crie um DefaultRouter para as rotas principais
+router = DefaultRouter()
 router.register(r'categorias', views.CategoriaViewSet)
 router.register(r'itens', views.ItemCardapioViewSet)
 router.register(r'consumacoes', views.ConsumacaoViewSet)
 
-# Rotas principais
+# Importe e adicione as rotas de estoque ao mesmo router
+from .views_estoque import FornecedorViewSet, CompraViewSet, EstoqueViewSet, MovimentacaoEstoqueViewSet, ItemCompraViewSet
+
+router.register(r'fornecedores', FornecedorViewSet)
+router.register(r'compras', CompraViewSet)
+router.register(r'estoque', EstoqueViewSet)
+router.register(r'movimentacoes', MovimentacaoEstoqueViewSet)
+router.register(r'itens-compra', ItemCompraViewSet)
+
+# API routes
 urlpatterns = [
-    path('api/auth/login/', views.login_view, name='login'),
-    path('api/auth/logout/', views.logout_view, name='logout'),
-    path('api/auth/user/', views.user_info, name='user-info'),
-    path('api/', include(router.urls)),
-    
-    # Incluir as rotas de estoque
-    path('api/', include(estoque_urlpatterns)),
-    
-    # Outras rotas...
-    path('', views.index, name='index'),
-    path('<path:path>', views.index, name='index-paths'),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    path('auth/login/', views.login_view, name='login'),
+    path('auth/logout/', views.logout_view, name='logout'),
+    path('auth/user/', views.user_info, name='user-info'),
+    path('', include(router.urls)),
+]

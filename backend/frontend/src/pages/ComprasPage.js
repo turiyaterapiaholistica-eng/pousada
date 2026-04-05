@@ -4,8 +4,12 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Snackbar, Alert, IconButton, Divider, List, ListItem, ListItemText,
   Dialog, DialogTitle, DialogContent, DialogActions, ListItemButton,
-  DialogContentText
+  DialogContentText, FormControlLabel, Checkbox
 } from '@mui/material';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import ptBR from 'date-fns/locale/pt-BR';
 import Grid from '@mui/material/Grid2';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -40,12 +44,17 @@ const ComprasPage = () => {
   const [compraParaExcluir, setCompraParaExcluir] = useState(null);
   const [modoEdicao, setModoEdicao] = useState(false);
   
+  // Estados para controle de caixas
+  const [isCaixa, setIsCaixa] = useState(false);
+  const [unidadesPorCaixa, setUnidadesPorCaixa] = useState(24);
+  
   // Dados do formulário
   const [formData, setFormData] = useState({
     fornecedor: '',
     data: new Date(),
     nota_fiscal: '',
-    observacao: ''
+    observacao: '',
+    fornecedores: [] // Incluir fornecedores no formData
   });
   
   // Dados do item sendo adicionado
@@ -123,6 +132,9 @@ const ComprasPage = () => {
       const data = await api.get('/fornecedores/');
       console.log('Fornecedores carregados:', data);
       setFornecedores(Array.isArray(data) ? data : []);
+      
+      // Atualizar também no formData
+      setFormData(prev => ({...prev, fornecedores: Array.isArray(data) ? data : []}));
     } catch (error) {
       console.error('Erro ao carregar fornecedores:', error);
       setFornecedores([]);
@@ -190,9 +202,10 @@ const ComprasPage = () => {
     // Carregar dados da compra para o formulário
     setFormData({
       fornecedor: compra.fornecedor,
-      data: compra.data,
+      data: compra.data ? new Date(compra.data) : new Date(),
       nota_fiscal: compra.nota_fiscal || '',
-      observacao: compra.observacao || ''
+      observacao: compra.observacao || '',
+      fornecedores: fornecedores // Manter a referência aos fornecedores
     });
     
     // Preparar carrinho de compras com os itens existentes
@@ -219,7 +232,8 @@ const ComprasPage = () => {
       fornecedor: '',
       data: new Date(),
       nota_fiscal: '',
-      observacao: ''
+      observacao: '',
+      fornecedores: fornecedores // Incluir fornecedores no formData
     });
     setItemAtual({
       categoriaPai: '',
@@ -315,11 +329,11 @@ const ComprasPage = () => {
     if (name === 'item' && value) {
       // Carregar preço padrão se disponível
       const itemSelecionado = itensCardapio.find(item => item.id === parseInt(value));
-      if (itemSelecionado && itemSelecionado.preco_custo) {
+      if (itemSelecionado && itemSelecionado.preco_compra) {
         setItemAtual({ 
           ...itemAtual, 
           [name]: value,
-          valor_unitario: itemSelecionado.preco_custo
+          valor_unitario: itemSelecionado.preco_compra
         });
         return;
       }
@@ -344,16 +358,49 @@ const ComprasPage = () => {
       return;
     }
     
-    setCarrinhoCompra([
-      ...carrinhoCompra,
-      {
+    // Verifica se é uma caixa
+    if (isCaixa) {
+      // Adiciona o item como caixa
+      const novoCaixaItem = {
+        ...itemAtual,
+        id: `caixa-${Date.now()}`, // ID temporário para gerenciar o carrinho
+        item: itemId,
+        item_nome: `${itemInfo.nome} (Caixa com ${unidadesPorCaixa} unidades)`,
+        categoria_nome: itemInfo.categoria_nome,
+        unidade: 'cx',
+        isCaixa: true,
+        unidadesPorCaixa: unidadesPorCaixa
+      };
+      
+      setCarrinhoCompra([...carrinhoCompra, novoCaixaItem]);
+      
+      // Agora adiciona as unidades individuais automaticamente
+      const valorUnitario = parseFloat(itemAtual.valor_unitario) / unidadesPorCaixa;
+      
+      const novoItemUnidade = {
+        ...itemAtual,
+        id: `unidade-${Date.now()}`, // ID temporário para gerenciar o carrinho
+        item: itemId,
+        item_nome: `${itemInfo.nome} (Unidade)`,
+        categoria_nome: itemInfo.categoria_nome,
+        quantidade: unidadesPorCaixa * itemAtual.quantidade, // Multiplica pela quantidade de caixas
+        unidade: 'un',
+        valor_unitario: valorUnitario
+      };
+      
+      setCarrinhoCompra(prev => [...prev, novoItemUnidade]);
+    } else {
+      // Adiciona o item normalmente
+      const novoItem = {
         ...itemAtual,
         id: Date.now(), // ID temporário para gerenciar o carrinho
         item: itemId,
         item_nome: itemInfo.nome,
         categoria_nome: itemInfo.categoria_nome
-      }
-    ]);
+      };
+      
+      setCarrinhoCompra([...carrinhoCompra, novoItem]);
+    }
     
     // Limpar formulário para novo item, mantendo as categorias
     setItemAtual({
@@ -389,39 +436,40 @@ const ComprasPage = () => {
     try {
       if (modoEdicao && compraAtual) {
         // Atualização de compra existente
+
+        const newDate = new Date(formData.data);
+        newDate.setHours(0, 0, 0, 0); // Set time to midnight
+
         const dadosAtualizados = {
           fornecedor: formData.fornecedor,
           nota_fiscal: formData.nota_fiscal,
-          observacao: formData.observacao
+          observacao: formData.observacao,
+          // Preserve a hora quando passamos uma nova data
+          data: newDate.toISOString()
         };
         
         // Atualizar dados básicos da compra
         await api.patch(`/compras/${compraAtual.id}/`, dadosAtualizados);
         
-        // Ao editar uma compra existente, precisamos primeiro verificar quais itens foram removidos
-        // e quais itens foram modificados ou adicionados
-        
         // Itens existentes na compra (antes da edição)
         const itensOriginais = compraAtual.itens || [];
         
-        // Itens que foram removidos (estavam nos originais mas não estão no carrinho)
+        // Itens que foram removidos
         const itensRemovidos = itensOriginais.filter(
           itemOriginal => !carrinhoCompra.some(item => item.id === itemOriginal.id)
         );
         
-        // Para itens removidos, precisaríamos de um endpoint para excluir itens
-        // Como isso não foi implementado no backend, vamos apenas exibir uma mensagem
         if (itensRemovidos.length > 0) {
           console.log('Itens removidos:', itensRemovidos);
           showSnackbar('A remoção de itens não está disponível. Os itens originais serão mantidos.', 'warning');
         }
         
         // Itens novos (estão no carrinho mas não estavam nos originais)
-        // Estes podem ter id temporário (gerado pelo frontend) ou undefined se forem itens novos
         const itensNovos = carrinhoCompra.filter(
           item => !itensOriginais.some(itemOriginal => itemOriginal.id === item.id) || 
                   !Number.isInteger(item.id) || 
-                  item.id >= 1000000000 // Assumindo que ids temporários são grandes números
+                  item.id >= 1000000000 ||
+                  typeof item.id === 'string'
         );
         
         // Se existem itens novos, adicionamos eles à compra
@@ -438,13 +486,11 @@ const ComprasPage = () => {
           });
         }
         
-        // Itens modificados (estão tanto nos originais quanto no carrinho, mas com valores diferentes)
+        // Itens modificados
         const itensModificados = carrinhoCompra.filter(itemCarrinho => {
-          // Se é um item do banco de dados (não temporário)
           if (Number.isInteger(itemCarrinho.id) && itemCarrinho.id < 1000000000) {
             const itemOriginal = itensOriginais.find(item => item.id === itemCarrinho.id);
             if (itemOriginal) {
-              // Verificar se algo mudou
               return (
                 itemCarrinho.quantidade !== itemOriginal.quantidade ||
                 itemCarrinho.valor_unitario !== itemOriginal.valor_unitario ||
@@ -455,7 +501,6 @@ const ComprasPage = () => {
           return false;
         });
         
-        // Para itens modificados, precisaríamos de um endpoint para atualizar itens
         if (itensModificados.length > 0) {
           console.log('Itens modificados:', itensModificados);
           showSnackbar('A modificação de itens existentes não está disponível no momento.', 'warning');
@@ -466,7 +511,15 @@ const ComprasPage = () => {
         fetchCompras();
       } else {
         // Criar nova compra
-        const response = await api.post('/compras/', formData);
+        const newDate = new Date(formData.data);
+        newDate.setHours(0, 0, 0, 0); // Set time to midnight
+        
+        const compraData = {
+          ...formData,
+          data: newDate.toISOString()
+        };
+        
+        const response = await api.post('/compras/', compraData);
         console.log('Resposta da API após criar compra:', response);
         
         // Tratar o resultado de forma consistente
@@ -501,10 +554,25 @@ const ComprasPage = () => {
     }
   };
 
-  
-  // Funções auxiliares
-  const showSnackbar = (message, severity = 'success') => {
-    setSnackbar({ open: true, message, severity });
+  const handleCaixaChange = (e) => {
+    setIsCaixa(e.target.checked);
+    
+    // Se desmarcou a opção de caixa, voltar para unidade normal
+    if (!e.target.checked) {
+      setItemAtual(prev => ({
+        ...prev,
+        unidade: 'un'
+      }));
+    } else {
+      setItemAtual(prev => ({
+        ...prev,
+        unidade: 'cx'
+      }));
+    }
+  };
+
+  const handleUnidadesPorCaixaChange = (e) => {
+    setUnidadesPorCaixa(Number(e.target.value));
   };
 
   const handleSelectFornecedor = (id) => {
@@ -515,454 +583,219 @@ const ComprasPage = () => {
     }
   };
 
+  // Função auxiliar para exibir snackbar
+  const showSnackbar = (message, severity = 'success') => {
+    setSnackbar({ open: true, message, severity });
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('pt-BR', { 
+      day: '2-digit', 
+      month: '2-digit', 
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   return (
-    <Box sx={{ display: 'flex', height: 'calc(100vh - 120px)' }}>
-      {/* Sidebar de fornecedores */}
-      <Paper sx={{ 
-        width: '250px', 
-        mr: 2, 
-        display: 'flex', 
-        flexDirection: 'column',
-        overflow: 'hidden'
-      }}>
-        <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-          <Typography variant="h6">Fornecedores</Typography>
-        </Box>
-        
-        <List sx={{ overflow: 'auto', flex: 1 }}>
-            {Array.isArray(fornecedores) && fornecedores.length > 0 ? (
-                fornecedores.map((fornecedor) => (
-                <ListItemButton
-                    key={fornecedor.id}
-                    selected={selectedFornecedor === fornecedor.id}
-                    onClick={() => handleSelectFornecedor(fornecedor.id)}
-                >
-                    <ListItemText primary={fornecedor.nome || 'Sem nome'} />
-                </ListItemButton>
-                ))
-            ) : (
-                <ListItem key="empty">
-                <ListItemText primary="Nenhum fornecedor cadastrado" />
-                </ListItem>
-            )}
-        </List>
-        
-        <Divider />
-        <Box sx={{ p: 2 }}>
-          <Button
-            variant="contained"
-            startIcon={<PersonAddIcon />}
-            onClick={() => setOpenFornecedorDialog(true)}
-            fullWidth
-          >
-            Novo Fornecedor
-          </Button>
-        </Box>
-      </Paper>
-      
-      {/* Conteúdo principal */}
-      <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-        <Box sx={{ 
+    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
+      <Box sx={{ display: 'flex', height: 'calc(100vh - 120px)' }}>
+        {/* Sidebar de fornecedores */}
+        <Paper sx={{ 
+          width: '250px', 
+          mr: 2, 
           display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          mb: 2
+          flexDirection: 'column',
+          overflow: 'hidden'
         }}>
-          <Typography variant="h5">
-            Gerenciamento de Compras
-            {selectedFornecedor && (
-              <Typography component="span" variant="subtitle1" sx={{ ml: 1, fontStyle: 'italic' }}>
-                (Filtrado por fornecedor)
-              </Typography>
-            )}
-          </Typography>
+          <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+            <Typography variant="h6">Fornecedores</Typography>
+          </Box>
           
-          <Button 
-            variant="contained" 
-            startIcon={<AddIcon />}
-            onClick={handleNovaCompra}
-          >
-            Nova Compra
-          </Button>
-        </Box>
+          <List sx={{ overflow: 'auto', flex: 1 }}>
+              {Array.isArray(fornecedores) && fornecedores.length > 0 ? (
+                  fornecedores.map((fornecedor) => (
+                  <ListItemButton
+                      key={fornecedor.id}
+                      selected={selectedFornecedor === fornecedor.id}
+                      onClick={() => handleSelectFornecedor(fornecedor.id)}
+                  >
+                      <ListItemText primary={fornecedor.nome || 'Sem nome'} />
+                  </ListItemButton>
+                  ))
+              ) : (
+                  <ListItem key="empty">
+                  <ListItemText primary="Nenhum fornecedor cadastrado" />
+                  </ListItem>
+              )}
+          </List>
+          
+          <Divider />
+          <Box sx={{ p: 2 }}>
+            <Button
+              variant="contained"
+              startIcon={<PersonAddIcon />}
+              onClick={() => setOpenFornecedorDialog(true)}
+              fullWidth
+            >
+              Novo Fornecedor
+            </Button>
+          </Box>
+        </Paper>
         
-        {/* Lista de Compras */}
-        <TableContainer component={Paper} sx={{ flexGrow: 1, overflow: 'auto' }}>
-          <Table stickyHeader>
-            <TableHead>
-              <TableRow>
-                <TableCell>Data</TableCell>
-                <TableCell>Fornecedor</TableCell>
-                <TableCell>Nota Fiscal</TableCell>
-                <TableCell align="right">Valor Total</TableCell>
-                <TableCell>Ações</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {isLoading ? (
+        {/* Conteúdo principal */}
+        <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            mb: 2
+          }}>
+            <Typography variant="h5">
+              Gerenciamento de Compras
+              {selectedFornecedor && (
+                <Typography component="span" variant="subtitle1" sx={{ ml: 1, fontStyle: 'italic' }}>
+                  (Filtrado por fornecedor)
+                </Typography>
+              )}
+            </Typography>
+            
+            <Button 
+              variant="contained" 
+              startIcon={<AddIcon />}
+              onClick={handleNovaCompra}
+            >
+              Nova Compra
+            </Button>
+          </Box>
+          
+          {/* Lista de Compras */}
+          <TableContainer component={Paper} sx={{ flexGrow: 1, overflow: 'auto' }}>
+            <Table stickyHeader>
+              <TableHead>
                 <TableRow>
-                  <TableCell colSpan={5} align="center">
-                    Carregando...
-                  </TableCell>
+                  <TableCell>Data</TableCell>
+                  <TableCell>Fornecedor</TableCell>
+                  <TableCell>Nota Fiscal</TableCell>
+                  <TableCell align="right">Valor Total</TableCell>
+                  <TableCell>Ações</TableCell>
                 </TableRow>
-              ) : Array.isArray(compras) && compras.length > 0 ? (
-                compras.map((compra) => (
-                  <TableRow key={compra.id}>
-                    <TableCell>
-                      {new Date(compra.data).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>{compra.fornecedor_nome}</TableCell>
-                    <TableCell>{compra.nota_fiscal || '-'}</TableCell>
-                    <TableCell align="right">{formatMoney(compra.valor_total)}</TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', gap: 1 }}>
-                        <Button 
-                          size="small" 
-                          variant="outlined"
-                          onClick={() => handleOpenCompra(compra)}
-                        >
-                          Detalhes
-                        </Button>
-                        <IconButton 
-                          color="primary"
-                          onClick={() => handleEditarCompra(compra)}
-                          title="Editar compra"
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                        <IconButton 
-                          color="error"
-                          onClick={() => handleConfirmDeleteCompra(compra)}
-                          title="Excluir compra"
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Box>
+              </TableHead>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center">
+                      Carregando...
                     </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={5} align="center">
-                    Nenhuma compra encontrada
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Box>
-      
-      {/* Modal de Nova Compra/Detalhes de Compra */}
-      <Dialog 
-        open={openDialog} 
-        onClose={handleCloseDialog}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle sx={{ pb: 1 }}>
-          {compraAtual 
-            ? (modoEdicao ? 'Editar Compra' : 'Detalhes da Compra') 
-            : 'Nova Compra'}
-        </DialogTitle>
-        <DialogContent dividers>
-          {compraAtual && !modoEdicao ? (
-            // Modo visualização
-            <Box>
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="text.secondary">
-                    Fornecedor
-                  </Typography>
-                  <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
-                    {compraAtual.fornecedor_nome}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="text.secondary">
-                    Data
-                  </Typography>
-                  <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
-                    {new Date(compraAtual.data).toLocaleString()}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="text.secondary">
-                    Nota Fiscal
-                  </Typography>
-                  <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
-                    {compraAtual.nota_fiscal || '-'}
-                  </Typography>
-                </Grid>
-                {compraAtual.observacao && (
-                  <Grid item xs={12}>
+                ) : Array.isArray(compras) && compras.length > 0 ? (
+                  compras.map((compra) => (
+                    <TableRow key={compra.id}>
+                      <TableCell>
+                        {formatDate(compra.data)}
+                      </TableCell>
+                      <TableCell>{compra.fornecedor_nome}</TableCell>
+                      <TableCell>{compra.nota_fiscal || '-'}</TableCell>
+                      <TableCell align="right">{formatMoney(compra.valor_total)}</TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          <Button 
+                            size="small" 
+                            variant="outlined"
+                            onClick={() => handleOpenCompra(compra)}
+                          >
+                            Detalhes
+                          </Button>
+                          <IconButton 
+                            color="primary"
+                            onClick={() => handleEditarCompra(compra)}
+                            title="Editar compra"
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton 
+                            color="error"
+                            onClick={() => handleConfirmDeleteCompra(compra)}
+                            title="Excluir compra"
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center">
+                      Nenhuma compra encontrada
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Box>
+        
+        {/* Modal de Nova Compra/Detalhes de Compra */}
+        <Dialog 
+          open={openDialog} 
+          onClose={handleCloseDialog}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle sx={{ pb: 1 }}>
+            {compraAtual 
+              ? (modoEdicao ? 'Editar Compra' : 'Detalhes da Compra') 
+              : 'Nova Compra'}
+          </DialogTitle>
+          <DialogContent dividers>
+            {compraAtual && !modoEdicao ? (
+              // Modo visualização
+              <Box>
+                <Grid container spacing={3}>
+                  <Grid item xs={12} md={6}>
                     <Typography variant="body2" color="text.secondary">
-                      Observação
+                      Fornecedor
                     </Typography>
-                    <Typography variant="body1">
-                      {compraAtual.observacao}
+                    <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
+                      {compraAtual.fornecedor_nome}
                     </Typography>
                   </Grid>
-                )}
-              </Grid>
-              
-              <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>
-                Itens da Compra
-              </Typography>
-              <TableContainer sx={{ maxHeight: '400px' }}>
-                <Table stickyHeader size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Item</TableCell>
-                      <TableCell>Categoria</TableCell>
-                      <TableCell align="right">Quantidade</TableCell>
-                      <TableCell align="right">Valor Unitário</TableCell>
-                      <TableCell align="right">Subtotal</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {compraAtual.itens.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell>{item.item_nome}</TableCell>
-                        <TableCell>{item.categoria_nome}</TableCell>
-                        <TableCell align="right">
-                          {item.quantidade} {item.unidade}
-                        </TableCell>
-                        <TableCell align="right">
-                          {formatMoney(item.valor_unitario)}
-                        </TableCell>
-                        <TableCell align="right">
-                          {formatMoney(item.quantidade * item.valor_unitario)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    <TableRow>
-                      <TableCell colSpan={4} align="right" sx={{ fontWeight: 'bold' }}>
-                        Total:
-                      </TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 'bold' }}>
-                        {formatMoney(compraAtual.valor_total)}
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </Box>
-          ) : (
-            // Modo criação ou edição
-            <Box>
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    select
-                    label="Fornecedor"
-                    name="fornecedor"
-                    value={formData.fornecedor}
-                    onChange={handleInputChange}
-                    required
-                    sx={{ 
-                      mb: 2,
-                      '& .MuiInputBase-root': {
-                        minHeight: '56px'
-                      },
-                      width: '250px'
-                    }}
-                  >
-                    <MenuItem value="">Selecione um fornecedor</MenuItem>
-                    {Array.isArray(fornecedores) ? (
-                        fornecedores.length > 0 ? (
-                        fornecedores.map((fornecedor) => (
-                            <MenuItem key={fornecedor.id} value={fornecedor.id}>
-                            {fornecedor.nome || `Fornecedor ID: ${fornecedor.id}`}
-                            </MenuItem>
-                        ))
-                        ) : (
-                        <MenuItem value="" disabled>Nenhum fornecedor encontrado</MenuItem>
-                        )
-                    ) : (
-                        <MenuItem value="" disabled>Erro ao carregar fornecedores</MenuItem>
-                    )}
-                  </TextField>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    label="Nota Fiscal"
-                    name="nota_fiscal"
-                    value={formData.nota_fiscal}
-                    onChange={handleInputChange}
-                    sx={{
-                      width: '200px',
-                    }}
-                  />
-                </Grid>
-                <Grid item xs={12} md={12}>
-                  <TextField
-                    label="Observação"
-                    name="observacao"
-                    value={formData.observacao}
-                    onChange={handleInputChange}
-                    multiline
-                    rows={1}
-                    sx={{
-                      width: '100%',
-                    }}
-                  />
-                </Grid>
-              </Grid>
-              
-              <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>
-                Adicionar Itens
-              </Typography>
-              
-              <Grid container spacing={3} mb={2} width={'100%'}>
-                {/* Ajustei os tamanhos dos comboboxes para melhor distribuição do espaço */}
-                <Grid item xs={12} md={5}>
-                  <TextField
-                    select
-                    label="Categoria Principal"
-                    name="categoriaPai"
-                    value={itemAtual.categoriaPai}
-                    onChange={handleItemChange}
-                    fullWidth
-                    required
-                    sx={{ 
-                      '& .MuiInputBase-root': {
-                        minHeight: '56px'
-                      },
-                      width: '200px'
-                    }}
-                  >
-                    <MenuItem value="">Selecione uma categoria</MenuItem>
-                    {categoriasPai.map((categoria) => (
-                      <MenuItem key={categoria.id} value={categoria.id}>
-                        {categoria.nome}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <TextField
-                    select
-                    label="Subcategoria"
-                    name="categoria"
-                    value={itemAtual.categoria}
-                    onChange={handleItemChange}
-                    required
-                    disabled={!itemAtual.categoriaPai}
-                    sx={{ 
-                      '& .MuiInputBase-root': {
-                        minHeight: '56px'
-                      },
-                      width: '200px'
-                    }}
-                  >
-                    <MenuItem value="">Selecione uma subcategoria</MenuItem>
-                    {categoriasFilho.map((categoria) => (
-                      <MenuItem key={categoria.id} value={categoria.id}>
-                        {categoria.nome}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                </Grid>
-                <Grid item xs={12} md={3}>
-                  <TextField
-                    select
-                    label="Item"
-                    name="item"
-                    value={itemAtual.item}
-                    onChange={handleItemChange}
-                    required
-                    fullWidth
-                    disabled={!itemAtual.categoria}
-                    sx={{ 
-                      '& .MuiInputBase-root': {
-                        minHeight: '56px'
-                      },
-                      width: '200px'
-                    }}
-                  >
-                    <MenuItem value="">Selecione um item</MenuItem>
-                    {itensFiltrados.map((item) => (
-                      <MenuItem key={item.id} value={item.id}>
-                        {item.nome}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                </Grid>
-              </Grid>
-
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={3}>
-                  <TextField
-                    label="Quantidade"
-                    name="quantidade"
-                    type="number"
-                    value={itemAtual.quantidade}
-                    onChange={handleItemChange}
-                    fullWidth
-                    required
-                    inputProps={{ min: 0.001, step: 0.001 }}
-                    sx={{ height: '100%' }}
-                  />
-                </Grid>
-                <Grid item xs={12} md={3}>
-                  <TextField
-                    select
-                    label="Unidade"
-                    name="unidade"
-                    value={itemAtual.unidade}
-                    onChange={handleItemChange}
-                    fullWidth
-                    required
-                    sx={{ height: '100%' }}
-                    SelectProps={{
-                      MenuProps: {
-                        style: { maxHeight: 300 },
-                      },
-                    }}
-                  >
-                    <MenuItem value="un">Un</MenuItem>
-                    <MenuItem value="kg">Kg</MenuItem>
-                    <MenuItem value="g">g</MenuItem>
-                    <MenuItem value="l">L</MenuItem>
-                    <MenuItem value="ml">mL</MenuItem>
-                    <MenuItem value="cx">Cx</MenuItem>
-                    <MenuItem value="pct">Pct</MenuItem>
-                  </TextField>
-                </Grid>
-                <Grid item xs={12} md={3}>
-                  <TextField
-                    label="Valor Unitário (R$)"
-                    name="valor_unitario"
-                    type="number"
-                    value={itemAtual.valor_unitario}
-                    onChange={handleItemChange}
-                    fullWidth
-                    required
-                    inputProps={{ min: 0.01, step: 0.01 }}
-                    sx={{ height: '100%' }}
-                  />
+                  <Grid item xs={12} md={6}>
+                    <Typography variant="body2" color="text.secondary">
+                      Data
+                    </Typography>
+                    <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
+                      {formatDate(compraAtual.data)}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <Typography variant="body2" color="text.secondary">
+                      Nota Fiscal
+                    </Typography>
+                    <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
+                      {compraAtual.nota_fiscal || '-'}
+                    </Typography>
+                  </Grid>
+                  {compraAtual.observacao && (
+                    <Grid item xs={12}>
+                      <Typography variant="body2" color="text.secondary">
+                        Observação
+                      </Typography>
+                      <Typography variant="body1">
+                        {compraAtual.observacao}
+                      </Typography>
+                    </Grid>
+                  )}
                 </Grid>
                 
-                <Grid item xs={12} md={3}>
-                  <Button
-                    variant="contained"
-                    onClick={adicionarItemAoCarrinho}
-                    fullWidth
-                    sx={{ height: '56px' }}
-                    startIcon={<AddIcon />}
-                  >
-                    Adicionar
-                  </Button>
-                </Grid>
-              </Grid>
-              
-              <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>
-                Itens da Compra
-              </Typography>
-              
-              {carrinhoCompra.length > 0 ? (
-                <TableContainer sx={{ maxHeight: '300px' }}>
+                <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>
+                  Itens da Compra
+                </Typography>
+                <TableContainer sx={{ maxHeight: '400px' }}>
                   <Table stickyHeader size="small">
                     <TableHead>
                       <TableRow>
@@ -971,11 +804,10 @@ const ComprasPage = () => {
                         <TableCell align="right">Quantidade</TableCell>
                         <TableCell align="right">Valor Unitário</TableCell>
                         <TableCell align="right">Subtotal</TableCell>
-                        <TableCell></TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {carrinhoCompra.map((item) => (
+                      {compraAtual.itens.map((item) => (
                         <TableRow key={item.id}>
                           <TableCell>{item.item_nome}</TableCell>
                           <TableCell>{item.categoria_nome}</TableCell>
@@ -988,143 +820,431 @@ const ComprasPage = () => {
                           <TableCell align="right">
                             {formatMoney(item.quantidade * item.valor_unitario)}
                           </TableCell>
-                          <TableCell align="right">
-                            <IconButton 
-                              size="small" 
-                              onClick={() => removerItemDoCarrinho(item.id)}
-                              color="error"
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </TableCell>
                         </TableRow>
                       ))}
                       <TableRow>
                         <TableCell colSpan={4} align="right" sx={{ fontWeight: 'bold' }}>
                           Total:
                         </TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 'bold' }} colSpan={2}>
-                          {formatMoney(calcularTotalCarrinho())}
+                        <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                          {formatMoney(compraAtual.valor_total)}
                         </TableCell>
                       </TableRow>
                     </TableBody>
                   </Table>
                 </TableContainer>
-              ) : (
-                <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'rgba(0,0,0,0.03)' }}>
-                  <Typography color="text.secondary">
-                    Nenhum item adicionado
-                  </Typography>
-                </Paper>
-              )}
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>
-            {compraAtual && !modoEdicao ? 'Fechar' : 'Cancelar'}
-          </Button>
-          {(!compraAtual || modoEdicao) && (
-            <Button 
-              onClick={handleCriarCompra} 
-              variant="contained"
-              startIcon={<SaveIcon />}
-              disabled={carrinhoCompra.length === 0}
-            >
-              {modoEdicao ? 'Atualizar Compra' : 'Salvar Compra'}
+              </Box>
+            ) : (
+              // Modo criação ou edição
+              <Box>
+                <Grid container spacing={3}>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      select
+                      label="Fornecedor"
+                      name="fornecedor"
+                      value={formData.fornecedor}
+                      onChange={handleInputChange}
+                      required
+                      sx={{ 
+                        mb: 2,
+                        '& .MuiInputBase-root': {
+                          minHeight: '56px'
+                        },
+                        width: '250px'
+                      }}
+                    >
+                      <MenuItem value="">Selecione um fornecedor</MenuItem>
+                      {Array.isArray(fornecedores) ? (
+                          fornecedores.length > 0 ? (
+                          fornecedores.map((fornecedor) => (
+                              <MenuItem key={fornecedor.id} value={fornecedor.id}>
+                              {fornecedor.nome || `Fornecedor ID: ${fornecedor.id}`}
+                              </MenuItem>
+                          ))
+                          ) : (
+                          <MenuItem value="" disabled>Nenhum fornecedor encontrado</MenuItem>
+                          )
+                      ) : (
+                          <MenuItem value="" disabled>Erro ao carregar fornecedores</MenuItem>
+                      )}
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12} md={3}>
+                    <DatePicker
+                      label="Data da Compra"
+                      value={formData.data}
+                      onChange={(newDate) => setFormData({...formData, data: newDate})}
+                      sx={{ width: '200px' }}
+                      renderInput={(params) => <TextField {...params} />}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={3}>
+                    <TextField
+                      label="Nota Fiscal"
+                      name="nota_fiscal"
+                      value={formData.nota_fiscal}
+                      onChange={handleInputChange}
+                      sx={{
+                        width: '200px',
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={12}>
+                    <TextField
+                      label="Observação"
+                      name="observacao"
+                      value={formData.observacao}
+                      onChange={handleInputChange}
+                      multiline
+                      rows={1}
+                      sx={{
+                        width: '100%',
+                      }}
+                    />
+                  </Grid>
+                </Grid>
+                
+                <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>
+                  Adicionar Itens
+                </Typography>
+                
+                <Grid container spacing={3} mb={2} width={'100%'}>
+                  {/* Ajustei os tamanhos dos comboboxes para melhor distribuição do espaço */}
+                  <Grid item xs={12} md={5}>
+                    <TextField
+                      select
+                      label="Categoria Principal"
+                      name="categoriaPai"
+                      value={itemAtual.categoriaPai}
+                      onChange={handleItemChange}
+                      fullWidth
+                      required
+                      sx={{ 
+                        '& .MuiInputBase-root': {
+                          minHeight: '56px'
+                        },
+                        width: '200px'
+                      }}
+                    >
+                      <MenuItem value="">Selecione uma categoria</MenuItem>
+                      {categoriasPai.map((categoria) => (
+                        <MenuItem key={categoria.id} value={categoria.id}>
+                          {categoria.nome}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <TextField
+                      select
+                      label="Subcategoria"
+                      name="categoria"
+                      value={itemAtual.categoria}
+                      onChange={handleItemChange}
+                      required
+                      disabled={!itemAtual.categoriaPai}
+                      sx={{ 
+                        '& .MuiInputBase-root': {
+                          minHeight: '56px'
+                        },
+                        width: '200px'
+                      }}
+                    >
+                      <MenuItem value="">Selecione uma subcategoria</MenuItem>
+                      {categoriasFilho.map((categoria) => (
+                        <MenuItem key={categoria.id} value={categoria.id}>
+                          {categoria.nome}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12} md={3}>
+                    <TextField
+                      select
+                      label="Item"
+                      name="item"
+                      value={itemAtual.item}
+                      onChange={handleItemChange}
+                      required
+                      fullWidth
+                      disabled={!itemAtual.categoria}
+                      sx={{ 
+                        '& .MuiInputBase-root': {
+                          minHeight: '56px'
+                        },
+                        width: '200px'
+                      }}
+                    >
+                      <MenuItem value="">Selecione um item</MenuItem>
+                      {itensFiltrados.map((item) => (
+                        <MenuItem key={item.id} value={item.id}>
+                          {item.nome}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </Grid>
+                </Grid>
+
+                <Grid container spacing={3}>
+                  <Grid item xs={12} md={2}>
+                    <TextField
+                      label="Quantidade"
+                      name="quantidade"
+                      type="number"
+                      value={itemAtual.quantidade}
+                      onChange={handleItemChange}
+                      fullWidth
+                      required
+                      inputProps={{ min: 0.001, step: 0.001 }}
+                      sx={{ height: '100%' }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={2}>
+                    <TextField
+                      select
+                      label="Unidade"
+                      name="unidade"
+                      value={itemAtual.unidade}
+                      onChange={handleItemChange}
+                      fullWidth
+                      required
+                      sx={{ height: '100%' }}
+                      SelectProps={{
+                        MenuProps: {
+                          style: { maxHeight: 300 },
+                        },
+                      }}
+                    >
+                      <MenuItem value="un">Un</MenuItem>
+                      <MenuItem value="kg">Kg</MenuItem>
+                      <MenuItem value="g">g</MenuItem>
+                      <MenuItem value="l">L</MenuItem>
+                      <MenuItem value="ml">mL</MenuItem>
+                      <MenuItem value="cx">Cx</MenuItem>
+                      <MenuItem value="pct">Pct</MenuItem>
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12} md={2}>
+                    <TextField
+                      label="Valor Unitário (R$)"
+                      name="valor_unitario"
+                      type="number"
+                      value={itemAtual.valor_unitario}
+                      onChange={handleItemChange}
+                      fullWidth
+                      required
+                      inputProps={{ min: 0.01, step: 0.01 }}
+                      sx={{ height: '100%' }}
+                    />
+                  </Grid>
+                  
+                  <Grid item xs={12} md={3}>
+                    <FormControlLabel 
+                      control={
+                        <Checkbox 
+                          checked={isCaixa} 
+                          onChange={handleCaixaChange} 
+                        />
+                      } 
+                      label="É uma caixa?" 
+                      sx={{ height: '100%' }}
+                    />
+                    
+                    {isCaixa && (
+                      <TextField
+                        label="Unidades por caixa"
+                        type="number"
+                        value={unidadesPorCaixa}
+                        onChange={handleUnidadesPorCaixaChange}
+                        sx={{ ml: 2, width: '120px' }}
+                        inputProps={{ min: 1, step: 1 }}
+                      />
+                    )}
+                  </Grid>
+                  
+                  <Grid item xs={12} md={3}>
+                    <Button
+                      variant="contained"
+                      onClick={adicionarItemAoCarrinho}
+                      fullWidth
+                      sx={{ height: '56px' }}
+                      startIcon={<AddIcon />}
+                    >
+                      Adicionar
+                    </Button>
+                  </Grid>
+                </Grid>
+                
+                <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>
+                  Itens da Compra
+                </Typography>
+                
+                {carrinhoCompra.length > 0 ? (
+                  <TableContainer sx={{ maxHeight: '300px' }}>
+                    <Table stickyHeader size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Item</TableCell>
+                          <TableCell>Categoria</TableCell>
+                          <TableCell align="right">Quantidade</TableCell>
+                          <TableCell align="right">Valor Unitário</TableCell>
+                          <TableCell align="right">Subtotal</TableCell>
+                          <TableCell></TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {carrinhoCompra.map((item) => (
+                          <TableRow key={item.id}>
+                            <TableCell>{item.item_nome}</TableCell>
+                            <TableCell>{item.categoria_nome}</TableCell>
+                            <TableCell align="right">
+                              {item.quantidade} {item.unidade}
+                            </TableCell>
+                            <TableCell align="right">
+                              {formatMoney(item.valor_unitario)}
+                            </TableCell>
+                            <TableCell align="right">
+                              {formatMoney(item.quantidade * item.valor_unitario)}
+                            </TableCell>
+                            <TableCell align="right">
+                              <IconButton 
+                                size="small" 
+                                onClick={() => removerItemDoCarrinho(item.id)}
+                                color="error"
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow>
+                          <TableCell colSpan={4} align="right" sx={{ fontWeight: 'bold' }}>
+                            Total:
+                          </TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 'bold' }} colSpan={2}>
+                            {formatMoney(calcularTotalCarrinho())}
+                          </TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                ) : (
+                  <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'rgba(0,0,0,0.03)' }}>
+                    <Typography color="text.secondary">
+                      Nenhum item adicionado
+                    </Typography>
+                  </Paper>
+                )}
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseDialog}>
+              {compraAtual && !modoEdicao ? 'Fechar' : 'Cancelar'}
             </Button>
-          )}
-        </DialogActions>
-      </Dialog>
-      
-      {/* Dialog para adicionar fornecedor */}
-      <Dialog 
-        open={openFornecedorDialog}
-        onClose={() => setOpenFornecedorDialog(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Novo Fornecedor</DialogTitle>
-        <DialogContent dividers>
-          <Grid container spacing={3}>
-            <Grid item xs={12}>
-              <TextField
-                autoFocus
-                label="Nome do Fornecedor"
-                name="nome"
-                fullWidth
-                value={novoFornecedor.nome}
-                onChange={handleNovoFornecedorChange}
-                required
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                label="Telefone"
-                name="telefone"
-                fullWidth
-                value={novoFornecedor.telefone}
-                onChange={handleNovoFornecedorChange}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                label="Cidade"
-                name="cidade"
-                fullWidth
-                value={novoFornecedor.cidade}
-                onChange={handleNovoFornecedorChange}
-              />
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenFornecedorDialog(false)}>
-            Cancelar
-          </Button>
-          <Button 
-            onClick={handleAdicionarFornecedor} 
-            variant="contained"
-            disabled={!novoFornecedor.nome}
-          >
-            Adicionar
-          </Button>
-        </DialogActions>
-      </Dialog>
-      
-      {/* Dialog de confirmação de exclusão */}
-      <Dialog
-        open={openDeleteDialog}
-        onClose={() => setOpenDeleteDialog(false)}
-      >
-        <DialogTitle>Confirmar Exclusão</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Tem certeza que deseja excluir esta compra? Esta ação não pode ser desfeita.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenDeleteDialog(false)}>Cancelar</Button>
-          <Button onClick={handleDeleteCompra} color="error" variant="contained">
-            Excluir
-          </Button>
-        </DialogActions>
-      </Dialog>
-      
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-      >
-        <Alert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity={snackbar.severity}
-          sx={{ width: '100%' }}
+            {(!compraAtual || modoEdicao) && (
+              <Button 
+                onClick={handleCriarCompra} 
+                variant="contained"
+                startIcon={<SaveIcon />}
+                disabled={carrinhoCompra.length === 0}
+              >
+                {modoEdicao ? 'Atualizar Compra' : 'Salvar Compra'}
+              </Button>
+            )}
+          </DialogActions>
+        </Dialog>
+        
+        {/* Dialog para adicionar fornecedor */}
+        <Dialog 
+          open={openFornecedorDialog}
+          onClose={() => setOpenFornecedorDialog(false)}
+          maxWidth="sm"
+          fullWidth
         >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </Box>
+          <DialogTitle>Novo Fornecedor</DialogTitle>
+          <DialogContent dividers>
+            <Grid container spacing={3}>
+              <Grid item xs={12}>
+                <TextField
+                  autoFocus
+                  label="Nome do Fornecedor"
+                  name="nome"
+                  fullWidth
+                  value={novoFornecedor.nome}
+                  onChange={handleNovoFornecedorChange}
+                  required
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  label="Telefone"
+                  name="telefone"
+                  fullWidth
+                  value={novoFornecedor.telefone}
+                  onChange={handleNovoFornecedorChange}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  label="Cidade"
+                  name="cidade"
+                  fullWidth
+                  value={novoFornecedor.cidade}
+                  onChange={handleNovoFornecedorChange}
+                />
+              </Grid>
+            </Grid>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenFornecedorDialog(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleAdicionarFornecedor} 
+              variant="contained"
+              disabled={!novoFornecedor.nome}
+            >
+              Adicionar
+            </Button>
+          </DialogActions>
+        </Dialog>
+        
+        {/* Dialog de confirmação de exclusão */}
+        <Dialog
+          open={openDeleteDialog}
+          onClose={() => setOpenDeleteDialog(false)}
+        >
+          <DialogTitle>Confirmar Exclusão</DialogTitle>
+          <DialogContent>
+            <DialogContentText>
+              Tem certeza que deseja excluir esta compra? Esta ação não pode ser desfeita.
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenDeleteDialog(false)}>Cancelar</Button>
+            <Button onClick={handleDeleteCompra} color="error" variant="contained">
+              Excluir
+            </Button>
+          </DialogActions>
+        </Dialog>
+        
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={6000}
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+        >
+          <Alert
+            onClose={() => setSnackbar({ ...snackbar, open: false })}
+            severity={snackbar.severity}
+            sx={{ width: '100%' }}
+          >
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
+      </Box>
+    </LocalizationProvider>
   );
 };
 
