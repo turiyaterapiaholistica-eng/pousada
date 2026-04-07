@@ -36,6 +36,29 @@ class FornecedorViewSet(viewsets.ModelViewSet):
 
 class CompraViewSet(viewsets.ModelViewSet):
     queryset = Compra.objects.prefetch_related('itens', 'itens__item').all()
+
+    def _get_periodo(self, request):
+        data_inicio = request.query_params.get('data_inicio') or request.query_params.get('start_date')
+        data_fim = request.query_params.get('data_fim') or request.query_params.get('end_date')
+
+        if data_inicio:
+            try:
+                data_inicio = datetime.strptime(data_inicio, '%Y-%m-%d')
+            except ValueError:
+                data_inicio = timezone.now() - timedelta(days=30)
+        else:
+            data_inicio = timezone.now() - timedelta(days=30)
+
+        if data_fim:
+            try:
+                data_fim = datetime.strptime(data_fim, '%Y-%m-%d')
+                data_fim = data_fim.replace(hour=23, minute=59, second=59)
+            except ValueError:
+                data_fim = timezone.now()
+        else:
+            data_fim = timezone.now()
+
+        return data_inicio, data_fim
     
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:
@@ -187,26 +210,7 @@ class CompraViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def dashboard_data(self, request):
-        # Obter período 
-        data_inicio = request.query_params.get('data_inicio')
-        data_fim = request.query_params.get('data_fim')
-        
-        if data_inicio:
-            try:
-                data_inicio = datetime.strptime(data_inicio, '%Y-%m-%d')
-            except ValueError:
-                data_inicio = timezone.now() - timedelta(days=30)
-        else:
-            data_inicio = timezone.now() - timedelta(days=30)
-        
-        if data_fim:
-            try:
-                data_fim = datetime.strptime(data_fim, '%Y-%m-%d')
-                data_fim = data_fim.replace(hour=23, minute=59, second=59)
-            except ValueError:
-                data_fim = timezone.now()
-        else:
-            data_fim = timezone.now()
+        data_inicio, data_fim = self._get_periodo(request)
         
         # Total de compras no período
         total_compras = Compra.objects.filter(
@@ -435,6 +439,29 @@ class EstoqueViewSet(viewsets.ModelViewSet):
 class MovimentacaoEstoqueViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = MovimentacaoEstoque.objects.select_related('item').all()
     serializer_class = MovimentacaoEstoqueSerializer
+
+    def _get_periodo(self, request):
+        data_inicio = request.query_params.get('data_inicio') or request.query_params.get('start_date')
+        data_fim = request.query_params.get('data_fim') or request.query_params.get('end_date')
+
+        if data_inicio:
+            try:
+                data_inicio = datetime.strptime(data_inicio, '%Y-%m-%d')
+            except ValueError:
+                data_inicio = timezone.now() - timedelta(days=30)
+        else:
+            data_inicio = timezone.now() - timedelta(days=30)
+
+        if data_fim:
+            try:
+                data_fim = datetime.strptime(data_fim, '%Y-%m-%d')
+                data_fim = data_fim.replace(hour=23, minute=59, second=59)
+            except ValueError:
+                data_fim = timezone.now()
+        else:
+            data_fim = timezone.now()
+
+        return data_inicio, data_fim
     
     def get_queryset(self):
         queryset = self.queryset
@@ -472,26 +499,7 @@ class MovimentacaoEstoqueViewSet(viewsets.ReadOnlyModelViewSet):
     
     @action(detail=False, methods=['get'])
     def dashboard_data(self, request):
-        # Obter período
-        data_inicio = request.query_params.get('data_inicio')
-        data_fim = request.query_params.get('data_fim')
-        
-        if data_inicio:
-            try:
-                data_inicio = datetime.strptime(data_inicio, '%Y-%m-%d')
-            except ValueError:
-                data_inicio = timezone.now() - timedelta(days=30)
-        else:
-            data_inicio = timezone.now() - timedelta(days=30)
-        
-        if data_fim:
-            try:
-                data_fim = datetime.strptime(data_fim, '%Y-%m-%d')
-                data_fim = data_fim.replace(hour=23, minute=59, second=59)
-            except ValueError:
-                data_fim = timezone.now()
-        else:
-            data_fim = timezone.now()
+        data_inicio, data_fim = self._get_periodo(request)
         
         # Movimentação por tipo
         movimentacao_por_tipo = MovimentacaoEstoque.objects.filter(

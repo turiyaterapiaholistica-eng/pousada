@@ -17,7 +17,7 @@ class QuartoSerializer(serializers.ModelSerializer):
             'capacidade_adultos', 'capacidade_criancas', 'capacidade_maxima',
             'valor_diaria_padrao', 'descricao', 'quantidade', 'status', 'status_display',
             'tamanho', 'tem_vista', 'tipo_banheiro', 'recursos_banheiro', 
-            'espaco_externo'
+            'espaco_externo', 'amenities', 'camas'
         ]
 
 class HospedeSerializer(serializers.ModelSerializer):

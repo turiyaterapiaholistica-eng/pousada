@@ -10,7 +10,8 @@ import {
   MenuItem,
   IconButton,
   Divider,
-  Tooltip
+  Tooltip,
+  Stack
 } from '@mui/material';
 import { Link as RouterLink, useNavigate, Outlet, useLocation } from 'react-router-dom';
 import LogoutIcon from '@mui/icons-material/Logout';
@@ -32,11 +33,16 @@ import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
 import SettingsIcon from '@mui/icons-material/Settings';
 import VolunteerActivismIcon from '@mui/icons-material/VolunteerActivism';
 import AssignmentIcon from '@mui/icons-material/Assignment';
+import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
+import CameraAltRoundedIcon from '@mui/icons-material/CameraAltRounded';
+import MusicNoteRoundedIcon from '@mui/icons-material/MusicNoteRounded';
+import BrushRoundedIcon from '@mui/icons-material/BrushRounded';
 import authService from '../services/auth';
 
 // Mapeamento dos ícones para cada rota
 const menuIcons = {
-  '/': <RestaurantIcon />,
+  '/dashboard': <DashboardIcon />,
+  '/vendas': <RestaurantIcon />,
   '/comandas': <ReceiptIcon />,
   '/compras': <ShoppingCartIcon />,
   '/estoque': <InventoryIcon />,
@@ -87,7 +93,8 @@ const Layout = () => {
   // Determinar qual rota está ativa no submenu PdV
   const getActivePdVRoute = () => {
     const path = location.pathname;
-    if (path === '/') return '/';
+    if (path.includes('/dashboard')) return '/dashboard';
+    if (path === '/' || path.includes('/vendas')) return '/vendas';
     if (path.includes('/comandas')) return '/comandas';
     if (path.includes('/compras')) return '/compras';
     if (path.includes('/estoque')) return '/estoque';
@@ -120,6 +127,7 @@ const Layout = () => {
   const activePdVRoute = getActivePdVRoute();
   const activePMSRoute = getActivePMSRoute();
   const activeVoluntariosRoute = getActiveVoluntariosRoute();
+  const isDashboardExperience = location.pathname === '/dashboard';
 
   const handlePontoVendaMenuOpen = (event) => {
     setPontoVendaAnchorEl(event.currentTarget);
@@ -172,7 +180,8 @@ const Layout = () => {
 
   // Menu do Ponto de Venda
   const pontoVendaMenu = [
-    { name: 'Vendas', icon: <RestaurantIcon />, path: '/' },
+    { name: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
+    { name: 'Vendas', icon: <RestaurantIcon />, path: '/vendas' },
     { name: 'Comandas', icon: <ReceiptIcon />, path: '/comandas' },
     { name: 'Compras', icon: <ShoppingCartIcon />, path: '/compras' },
     { name: 'Estoque', icon: <InventoryIcon />, path: '/estoque' },
@@ -196,6 +205,103 @@ const Layout = () => {
     { name: 'Minhas Tarefas', icon: <AssignmentIcon />, path: '/voluntarios/minhas-tarefas' },
     { name: 'Painel do Voluntário', icon: <DashboardIcon />, path: '/voluntarios/painel' },
   ];
+
+  const dashboardDock = [
+    { path: '/dashboard', icon: <HomeRoundedIcon />, label: 'Dashboard' },
+    { path: '/vendas', icon: <RestaurantIcon />, label: 'Consumo' },
+    { path: '/reservas/lista', icon: <BrushRoundedIcon />, label: 'Reservas' },
+    { path: '/images', icon: <CameraAltRoundedIcon />, label: 'Imagens' },
+    { path: '/voluntarios', icon: <MusicNoteRoundedIcon />, label: 'Voluntários' },
+  ];
+
+  if (isDashboardExperience) {
+    return (
+      <Box
+        sx={{
+          minHeight: '100vh',
+          position: 'relative',
+          overflow: 'hidden',
+          background:
+            'radial-gradient(circle at 50% 12%, rgba(255,194,124,0.22), transparent 22%), linear-gradient(180deg, #5f7b92 0%, #b78c63 34%, #17343b 68%, #102328 100%)',
+        }}
+      >
+        <Box
+          sx={{
+            position: 'fixed',
+            left: { xs: 12, md: 18 },
+            top: { xs: 12, md: 18 },
+            bottom: { xs: 12, md: 18 },
+            width: 76,
+            zIndex: 40,
+            borderRadius: 8,
+            px: 1,
+            py: 1.2,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            background: 'linear-gradient(180deg, rgba(16,28,30,0.6), rgba(14,23,26,0.42))',
+            border: '1px solid rgba(255,255,255,0.12)',
+            backdropFilter: 'blur(18px)',
+            boxShadow: '0 24px 50px rgba(3, 12, 16, 0.35)',
+          }}
+        >
+          <Stack spacing={1.1}>
+            {dashboardDock.map((item) => {
+              const selected = location.pathname === item.path;
+              return (
+                <Tooltip title={item.label} placement="right" key={item.path}>
+                  <IconButton
+                    onClick={() => navigate(item.path)}
+                    sx={{
+                      width: 54,
+                      height: 54,
+                      color: selected ? '#fff6e8' : 'rgba(255,255,255,0.82)',
+                      bgcolor: selected ? 'rgba(233, 133, 44, 0.72)' : 'rgba(255,255,255,0.04)',
+                      border: '1px solid',
+                      borderColor: selected ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.06)',
+                      boxShadow: selected ? '0 16px 30px rgba(167, 89, 23, 0.28)' : 'none',
+                    }}
+                  >
+                    {item.icon}
+                  </IconButton>
+                </Tooltip>
+              );
+            })}
+          </Stack>
+
+          <Stack spacing={1.1} alignItems="center">
+            <Tooltip title="Configurações" placement="right">
+              <IconButton
+                onClick={() => navigate('/configuracoes')}
+                sx={{ width: 48, height: 48, color: 'rgba(255,255,255,0.78)' }}
+              >
+                <SettingsIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Sair" placement="right">
+              <IconButton
+                onClick={handleLogout}
+                sx={{ width: 48, height: 48, color: 'rgba(255,255,255,0.78)' }}
+              >
+                <LogoutIcon />
+              </IconButton>
+            </Tooltip>
+          </Stack>
+        </Box>
+
+        <Box
+          component="main"
+          sx={{
+            minHeight: '100vh',
+            pl: { xs: 10, md: 14 },
+            pr: { xs: 1, md: 2 },
+          }}
+        >
+          <Outlet />
+        </Box>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>

@@ -29,7 +29,7 @@ const LoginPage = () => {
 
     try {
       await authService.login(credentials.username, credentials.password);
-      navigate('/');
+      navigate('/dashboard');
     } catch (error) {
       setError(
         error.response?.data?.detail || 

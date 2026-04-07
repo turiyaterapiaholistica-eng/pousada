@@ -78,11 +78,11 @@ const CheckinCheckoutPage = () => {
       
       if (tabValue === 0) {
         // Chegadas do dia
-        const response = await api.get(`/api/reservas/chegadas_hoje/?data=${dataFormatada}`);
+        const response = await api.get(`/reservas/chegadas_hoje/?data=${dataFormatada}`);
         setChegadas(response);
       } else {
         // Partidas do dia
-        const response = await api.get(`/api/reservas/partidas_hoje/?data=${dataFormatada}`);
+        const response = await api.get(`/reservas/partidas_hoje/?data=${dataFormatada}`);
         setPartidas(response);
       }
     } catch (error) {
@@ -127,7 +127,7 @@ const CheckinCheckoutPage = () => {
         observacoes: checkinObs
       };
       
-      await api.post('/api/checkins/', checkinData);
+      await api.post('/checkins/', checkinData);
       showSnackbar('Check-in realizado com sucesso', 'success');
       setOpenCheckinDialog(false);
       fetchData();
@@ -151,7 +151,7 @@ const CheckinCheckoutPage = () => {
         observacoes: checkoutData.observacoes
       };
       
-      await api.post('/api/checkouts/', checkoutDataFormatado);
+      await api.post('/checkouts/', checkoutDataFormatado);
       showSnackbar('Check-out realizado com sucesso', 'success');
       setOpenCheckoutDialog(false);
       fetchData();

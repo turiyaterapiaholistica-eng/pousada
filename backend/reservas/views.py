@@ -2,12 +2,9 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.db.models import Q, Count
+from django.db.models import Q
 from django.utils import timezone
 from datetime import datetime, timedelta
-import json
-
-
 from .models import Quarto, Hospede, Reserva, CheckIn, CheckOut
 from .serializers import (
     QuartoSerializer, 
@@ -47,12 +44,6 @@ class QuartoViewSet(viewsets.ModelViewSet):
             
         return queryset
         
-    def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-        print(f"Listando {queryset.count()} quartos")
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
-
     @action(detail=False, methods=['get'])
     def disponibilidade(self, request):
         """Check room availability for specific dates"""
@@ -142,7 +133,7 @@ class QuartoViewSet(viewsets.ModelViewSet):
             
             quarto_data = {
                 'id': quarto.id,
-                'numero': quarto.numero,
+                'nome': quarto.nome,
                 'tipo': quarto.tipo,
                 'tipo_display': quarto.get_tipo_display(),
                 'status': quarto.status,

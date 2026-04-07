@@ -523,7 +523,7 @@ const ComprasPage = () => {
         console.log('Resposta da API após criar compra:', response);
         
         // Tratar o resultado de forma consistente
-        const novaCompra = response.data || response;
+        const novaCompra = response;
         
         // Verificar se temos um ID válido
         if (!novaCompra || !novaCompra.id) {

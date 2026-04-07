@@ -95,15 +95,14 @@ const PublicMenu = () => {
     }
 
     try {
-      // This would need to be implemented in the backend
       const response = await api.post('/consumacoes/authenticate/', {
         code: comandaCode
       });
       
-      setCurrentComanda(response.data);
+      setCurrentComanda(response);
       
-      if (response.data.itens?.length > 0) {
-        setCart(response.data.itens.map(item => ({
+      if (response.itens?.length > 0) {
+        setCart(response.itens.map(item => ({
           ...item.item,
           quantidade: item.quantidade,
           precoEfetivo: item.item.preco
@@ -218,7 +217,7 @@ const PublicMenu = () => {
               <Button 
                 color="inherit" 
                 component={RouterLink} 
-                to="/"
+                to="/vendas"
               >
                 Consumação
               </Button>

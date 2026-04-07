@@ -63,24 +63,24 @@ const apiService = {
   },
 
   // Generic CRUD methods
-  get: async (url) => {
-    return await api.get(url);
+  get: async (url, config = {}) => {
+    return await api.get(url, config);
   },
   
-  post: async (url, data) => {
-    return await api.post(url, data);
+  post: async (url, data, config = {}) => {
+    return await api.post(url, data, config);
   },
   
-  put: async (url, data) => {
-    return await api.put(url, data);
+  put: async (url, data, config = {}) => {
+    return await api.put(url, data, config);
   },
 
-  patch: async (url, data) => {
-    return await api.patch(url, data);
+  patch: async (url, data, config = {}) => {
+    return await api.patch(url, data, config);
   },
   
-  delete: async (url) => {
-    return await api.delete(url);
+  delete: async (url, config = {}) => {
+    return await api.delete(url, config);
   },
 };
 

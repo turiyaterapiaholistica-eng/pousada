@@ -68,7 +68,8 @@ function App() {
               </ProtectedRoute>
             }>
               {/* Restaurant routes */}
-              <Route index element={<Consumacao />} />
+              <Route index element={<Navigate to="/dashboard" replace />} />
+              <Route path="vendas" element={<Consumacao />} />
               <Route path="comandas" element={<GestaoComandas />} />
               <Route path="/dashboard" element={<RestaurantDashboard />} />
               <Route path="images" element={<ImageUpload />} />
