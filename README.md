@@ -1,5 +1,12 @@
 # Pousada
 
+## Baixar o projeto
+
+```bash
+git clone https://github.com/thiagovilha/pousada.git
+cd pousada
+```
+
 ## Configuracao local
 
 No diretorio `backend`, crie um arquivo `.env` com o seguinte conteudo:
