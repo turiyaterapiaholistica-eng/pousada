@@ -45,5 +45,4 @@ yarn-error.log*
 *.swo
 
 # Frontend compiled bundle (gerado por npm run build)
-frontend/static/frontend/main.js
-frontend/static/frontend/main.js.LICENSE.txt
+frontend/static/frontend/
