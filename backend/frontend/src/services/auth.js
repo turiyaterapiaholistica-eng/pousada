@@ -17,11 +17,26 @@ const authService = {
     logout: async () => {
         try {
             await api.logout();
-            localStorage.removeItem(USER_KEY);
-            localStorage.removeItem('isAuthenticated');
+            authService.clearLocalAuth();
         } catch (error) {
             console.error('Logout error:', error);
         }
+    },
+
+    validateSession: async () => {
+        const user = await api.getCurrentUser();
+        if (user) {
+            localStorage.setItem(USER_KEY, JSON.stringify(user));
+            localStorage.setItem('isAuthenticated', 'true');
+            return user;
+        }
+        authService.clearLocalAuth();
+        return null;
+    },
+
+    clearLocalAuth: () => {
+        localStorage.removeItem(USER_KEY);
+        localStorage.removeItem('isAuthenticated');
     },
 
     getCurrentUser: () => {

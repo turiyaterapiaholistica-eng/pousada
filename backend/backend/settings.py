@@ -18,7 +18,7 @@ import os
 
 load_dotenv()
 
-CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:8000,http://127.0.0.1:8000').split(',')
+CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:8011,http://127.0.0.1:8011').split(',')
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -168,8 +168,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
+    "http://localhost:8011",
+    "http://127.0.0.1:8011",
     "http://pousada-zbcs.onrender.com"
 ]
 
@@ -184,5 +184,4 @@ REST_FRAMEWORK = {
 
 SESSION_COOKIE_AGE = 86400  # 24 hours in seconds
 SESSION_COOKIE_SECURE = False  # Set to True in production with HTTPS
-
 
